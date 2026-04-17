@@ -1,18 +1,18 @@
 # mac-cua-mcp harness report
-Generated: 2026-04-18T05:17:06
+Generated: 2026-04-18T05:27:42
 
-**8/9 suites passed** in 343.7s
+**9/9 suites passed** in 342.6s
 
 | suite | status | duration |
 | --- | --- | --- |
-| core tools (9) (core_tools.py) | ✅ pass | 66.7s |
-| error contract (4) (test_error_contract.py) | ✅ pass | 4.7s |
-| press_key vocab (25) (test_press_key_vocab.py) | ✅ pass | 146.9s |
-| perf bench (4 apps) (test_perf.py) | ✅ pass | 21.8s |
-| input latency (2 ops) (test_input_latency.py) | ✅ pass | 21.8s |
-| stability (100 calls) (test_stability.py) | ✅ pass | 37.3s |
-| concurrency (2 agents) (test_concurrency.py) | ❌ fail | 31.6s |
-| workflow (5-step calc) (test_workflow.py) | ✅ pass | 10.9s |
+| core tools (9) (core_tools.py) | ✅ pass | 66.1s |
+| error contract (4) (test_error_contract.py) | ✅ pass | 4.5s |
+| press_key vocab (25) (test_press_key_vocab.py) | ✅ pass | 147.1s |
+| perf bench (4 apps) (test_perf.py) | ✅ pass | 21.7s |
+| input latency (2 ops) (test_input_latency.py) | ✅ pass | 21.0s |
+| stability (100 calls) (test_stability.py) | ✅ pass | 37.7s |
+| concurrency (2 agents) (test_concurrency.py) | ✅ pass | 31.6s |
+| workflow (5-step calc) (test_workflow.py) | ✅ pass | 10.8s |
 | screenshot content (test_screenshot.py) | ✅ pass | 2.1s |
 
 ## Suite outputs
@@ -20,7 +20,7 @@ Generated: 2026-04-18T05:17:06
 ### core tools (9)
 
 ```
-MAC'
+AC'
 
 [perform_secondary_action Raise]
   [32mPASS[0m  sky accepted=True ({'text': 'App=com.apple.calculator (pid 20926)\nWindow: "Calculator", App: Calcu)  mac accepted=True ({'text': 'ok'})
@@ -29,7 +29,7 @@ MAC'
   [32mPASS[0m  sky accepted=True  mac accepted=True
 
 [1m=== summary ===[0m
-  [32mPASS[0m  list_apps: common=17  only_sky=7  only_mac=0
+  [32mPASS[0m  list_apps: common=24  only_sky=0  only_mac=11
   [32mPASS[0m  get_app_state: sky_nodes=24 mac_nodes=18  both-see-scroll-area=True
   [32mPASS[0m  scroll_textedit: sky: 0.0→0.587371512482 (ok)  mac: 0.0→0.186000978953 (ok)
   [32mPASS[0m  press_key: sky="tree-has-100=True  disp='338638.81578947'  (rejects=0)"  mac="tree-has-100=True  disp='338638.81578947'  (rejects=0)"  expected=100
@@ -94,40 +94,40 @@ sky: 25/25  mac: 25/25
 ```
 app               sky min(s)  mac min(s)  sky lines  mac lines
 ──────────────────────────────────────────────────────────────
-Calculator             0.198       0.098         51         45
-TextEdit               0.128       0.056         28         18
-Finder                 0.624       0.371         97        171
-Notes                  0.969       1.994        168        446
+Calculator             0.209       0.097         51         45
+TextEdit               0.129       0.059         28         18
+Finder                 0.630       0.367         97        171
+Notes                  0.900       1.963        168        446
 ```
 
 ### input latency (2 ops)
 
 ```
 [type_text 'X']  — broker call → AX visible
-  sky: min=617ms  avg=750ms  max=1244ms  (n=5)
-  mac: min=150ms  avg=159ms  max=169ms  (n=5)
+  sky: min=622ms  avg=746ms  max=1233ms  (n=5)
+  mac: min=152ms  avg=159ms  max=164ms  (n=5)
 
 [press_key 'z']
-  sky: min=614ms  avg=762ms  max=962ms  (n=5)
-  mac: min=193ms  avg=197ms  max=203ms  (n=5)
+  sky: min=564ms  avg=612ms  max=633ms  (n=5)
+  mac: min=194ms  avg=198ms  max=206ms  (n=5)
 ```
 
 ### stability (100 calls)
 
 ```
 [stability: 100 × get_app_state Calculator]
-  sky: 100/100 ok in 23.5s  (234.6ms/call)
-  mac: 100/100 ok in 12.0s  (119.5ms/call)
+  sky: 100/100 ok in 24.2s  (242.1ms/call)
+  mac: 100/100 ok in 11.6s  (115.7ms/call)
 ```
 
 ### concurrency (2 agents)
 
 ```
 [two-agent concurrent click on Calculator]
-  None
-  None
+  agent 0: idx=16 click=ok
+  agent 1: idx=26 click=ok
 
-concurrent access broke something
+both agents succeeded
 ```
 
 ### workflow (5-step calc)

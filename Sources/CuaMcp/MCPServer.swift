@@ -267,13 +267,7 @@ enum ToolRegistry {
 }
 
 private func formatAppList(_ apps: [[String: Any]]) -> String {
-    apps.map { app in
-        let name = app["name"] as? String ?? "(unknown)"
-        let bundle = app["bundleId"] as? String ?? ""
-        let active = (app["active"] as? Bool) == true ? " [active]" : ""
-        let hidden = (app["hidden"] as? Bool) == true ? " [hidden]" : ""
-        return "\(name) — \(bundle)\(active)\(hidden)"
-    }.joined(separator: "\n")
+    Tools.renderAppList(apps)
 }
 
 final class MCPServer {
