@@ -249,9 +249,13 @@ enum ToolRegistry {
                     guard let app = args["app"] as? String, !app.isEmpty else {
                         throw MCPError(code: -32602, message: "get_app_state requires string 'app'")
                     }
-                    let (_, root, text) = try Tools.getAppState(app: app)
+                    let (runningApp, root, text) = try Tools.getAppState(app: app)
                     ElementCache.shared.replace(root: root)
-                    return ["content": [["type": "text", "text": text]]]
+                    var content: [[String: Any]] = [["type": "text", "text": text]]
+                    if let png = Screenshot.captureAppWindowPNG(pid: runningApp.processIdentifier) {
+                        content.append(["type": "image", "mimeType": "image/png", "data": png])
+                    }
+                    return ["content": content]
                 }
             ),
         ]
