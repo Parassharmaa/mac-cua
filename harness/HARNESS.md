@@ -16,6 +16,8 @@ MCP processes and asserts identical behavior:
       test_perf.py           get_app_state latency bench
       test_input_latency.py  tool-call → AX-visible-effect latency
       test_stability.py      100× get_app_state hammer — no leaks / zero errors
+      test_concurrency.py    two mac-cua agents on same Mac — sharing is fine
+      test_workflow.py       5-step chained agent-style workflow (clear→9×9=81)
       run_all.py             runs every suite and prints scoreboard
 
 ## Run everything

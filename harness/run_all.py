@@ -10,6 +10,7 @@ TESTS = [
     ("input latency (2 ops)",   "test_input_latency.py"),
     ("stability (100 calls)",   "test_stability.py"),
     ("concurrency (2 agents)",  "test_concurrency.py"),
+    ("workflow (5-step calc)",  "test_workflow.py"),
 ]
 
 GREEN, RED, YELLOW, RESET = "\033[32m", "\033[31m", "\033[33m", "\033[0m"
