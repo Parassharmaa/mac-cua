@@ -107,8 +107,15 @@ final class AXTreeBuilder {
         AXUIElementCopyActionNames(element, &actionNames)
         var actions: [String] = []
         if let arr = actionNames as? [String] {
-            actions = arr.filter { $0 != "AXPress" && $0 != "AXCancel" && $0 != "AXConfirm" && $0 != "AXShowMenu" }
-                .map { $0.hasPrefix("AX") ? String($0.dropFirst(2)) : $0 }
+            let isScrollArea = role == "AXScrollArea"
+            actions = arr
+                .filter { name in
+                    if ["AXPress", "AXCancel", "AXConfirm", "AXShowMenu"].contains(name) { return false }
+                    // ScrollByPage actions are redundant with the role itself.
+                    if isScrollArea && name.hasPrefix("AXScroll") && name.hasSuffix("ByPage") { return false }
+                    return true
+                }
+                .map { cleanActionName($0) }
         }
 
         var children: [AXNode] = []
@@ -136,6 +143,20 @@ final class AXTreeBuilder {
             position: position, size: size,
             actions: actions, children: children
         )
+    }
+
+    /// Strip "AX" prefix + pick the short action name out of selector-dump junk like
+    /// "Name:Copy\nTarget:0x0\nSelector:(null)".
+    private func cleanActionName(_ raw: String) -> String {
+        var s = raw
+        if let firstLine = s.split(separator: "\n").first {
+            s = String(firstLine)
+        }
+        if let colon = s.range(of: "Name:") {
+            s = String(s[colon.upperBound...])
+        }
+        if s.hasPrefix("AX") { s = String(s.dropFirst(2)) }
+        return s
     }
 
     /// Cap number of children walked per node — mirrors how Sky elides long lists.

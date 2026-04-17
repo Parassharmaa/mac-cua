@@ -51,15 +51,11 @@ def find_by(tree, predicate):
 
 
 def find_scroll_area(state):
-    """Prefer scroll area that exposes paging actions."""
-    best = None
+    """Return index of first 'scroll area' element in the tree."""
     for line in state.splitlines():
         m = re.match(r"\s*(\d+)\s+scroll area", line)
-        if not m: continue
-        idx = int(m.group(1))
-        if "Scroll" in line: return idx
-        if best is None: best = idx
-    return best
+        if m: return int(m.group(1))
+    return None
 
 
 def activate(bundle_id):
