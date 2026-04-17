@@ -14,6 +14,7 @@ MCP processes and asserts identical behavior:
       test_error_contract.py 4 error-path contract checks
       test_press_key_vocab.py xdotool-style key vocab (25 specs)
       test_perf.py           get_app_state latency bench
+      test_input_latency.py  tool-call → AX-visible-effect latency
       run_all.py             runs every suite and prints scoreboard
 
 ## Run everything
@@ -36,6 +37,14 @@ Total runtime ~4 minutes. Exit code 0 iff every suite passed.
     TextEdit    120ms    5ms   (mac 26× faster)
     Finder      652ms   90ms   (mac  7× faster)
     Notes       980ms  1.7s    (sky  1.7× faster, 909-note sidebar)
+
+### input latency: broker call → AX-visible effect (avg of 5 samples)
+
+    op               sky     mac
+    type_text 'X'    755ms   160ms   (mac 4.7× faster)
+    press_key 'z'    882ms   195ms   (mac 4.5× faster)
+
+Sky has ~600ms baseline overhead from its app-server RPC chain.
 
 ## What each test covers
 
