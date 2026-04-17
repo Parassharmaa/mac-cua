@@ -30,6 +30,8 @@ enum AXError2: Error {
 
 final class AXTreeBuilder {
     private var nextIndex = 0
+    private var nodeBudget = 1500
+    private var budgetExceeded = false
 
     func build(forAppWithBundleID bundleID: String) throws -> (app: NSRunningApplication, root: AXNode) {
         guard let app = NSWorkspace.shared.runningApplications.first(where: {
@@ -52,25 +54,47 @@ final class AXTreeBuilder {
         return (app, node)
     }
 
+    private static let batchAttrs: [CFString] = [
+        "AXRole" as CFString, "AXRoleDescription" as CFString,
+        "AXTitle" as CFString, "AXDescription" as CFString,
+        "AXHelp" as CFString, "AXIdentifier" as CFString,
+        "AXEnabled" as CFString, "AXSelected" as CFString, "AXFocused" as CFString,
+        "AXValue" as CFString,
+    ]
+
     private func walk(_ element: AXUIElement, depth: Int, maxDepth: Int) -> AXNode {
         let idx = nextIndex
         nextIndex += 1
 
-        let role: String? = AXTreeBuilder.attribute(element, "AXRole")
-        let roleDescription: String? = AXTreeBuilder.attribute(element, "AXRoleDescription")
-        let title: String? = AXTreeBuilder.attribute(element, "AXTitle")
-        let description: String? = AXTreeBuilder.attribute(element, "AXDescription")
-        let help: String? = AXTreeBuilder.attribute(element, "AXHelp")
-        let identifier: String? = AXTreeBuilder.attribute(element, "AXIdentifier")
-        let enabled: Bool? = AXTreeBuilder.attribute(element, "AXEnabled")
-        let selected: Bool? = AXTreeBuilder.attribute(element, "AXSelected")
-        let focused: Bool? = AXTreeBuilder.attribute(element, "AXFocused")
+        var batched: CFArray?
+        AXUIElementCopyMultipleAttributeValues(element, AXTreeBuilder.batchAttrs as CFArray, AXCopyMultipleAttributeOptions(rawValue: 0), &batched)
+        let arr = (batched as? [Any]) ?? []
+        func strAt(_ i: Int) -> String? {
+            guard i < arr.count else { return nil }
+            return arr[i] as? String
+        }
+        func boolAt(_ i: Int) -> Bool? {
+            guard i < arr.count else { return nil }
+            return arr[i] as? Bool
+        }
+        let role = strAt(0)
+        let roleDescription = strAt(1)
+        let title = strAt(2)
+        let description = strAt(3)
+        let help = strAt(4)
+        let identifier = strAt(5)
+        let enabled = boolAt(6)
+        let selected = boolAt(7)
+        let focused = boolAt(8)
 
         var valueString: String? = nil
         var valueType: String? = nil
-        if let rawValue: CFTypeRef = AXTreeBuilder.rawAttribute(element, "AXValue") {
-            valueString = describeValue(rawValue)
-            valueType = cfTypeLabel(rawValue)
+        if arr.count > 9 {
+            let rawValue = arr[9] as CFTypeRef
+            if CFGetTypeID(rawValue) != CFNullGetTypeID() {
+                valueString = describeValue(rawValue)
+                valueType = cfTypeLabel(rawValue)
+            }
         }
 
         var settable: DarwinBoolean = false
@@ -88,9 +112,16 @@ final class AXTreeBuilder {
         }
 
         var children: [AXNode] = []
-        if depth < maxDepth {
+        if depth < maxDepth && !budgetExceeded {
             if let rawChildren: [AXUIElement] = AXTreeBuilder.attribute(element, "AXChildren") {
-                children = rawChildren.map { walk($0, depth: depth + 1, maxDepth: maxDepth) }
+                let limited = collapseRepeated(rawChildren, keep: 40)
+                for child in limited {
+                    if nextIndex >= nodeBudget {
+                        budgetExceeded = true
+                        break
+                    }
+                    children.append(walk(child, depth: depth + 1, maxDepth: maxDepth))
+                }
             }
         }
 
@@ -105,6 +136,12 @@ final class AXTreeBuilder {
             position: position, size: size,
             actions: actions, children: children
         )
+    }
+
+    /// Cap number of children walked per node — mirrors how Sky elides long lists.
+    private func collapseRepeated(_ children: [AXUIElement], keep: Int) -> [AXUIElement] {
+        if children.count <= keep + 5 { return children }
+        return Array(children.prefix(keep))
     }
 
     static func attribute<T>(_ element: AXUIElement, _ name: String) -> T? {
