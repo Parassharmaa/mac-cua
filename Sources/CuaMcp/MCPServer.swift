@@ -95,15 +95,28 @@ enum ToolRegistry {
                     ],
                 ],
                 handler: { args in
-                    if let index = args["element_index"] as? Int {
+                    func intOf(_ k: String) -> Int? {
+                        if let v = args[k] as? Int { return v }
+                        if let v = args[k] as? NSNumber { return v.intValue }
+                        if let v = args[k] as? Double { return Int(v) }
+                        if let v = args[k] as? String, let i = Int(v) { return i }
+                        return nil
+                    }
+                    func doubleOf(_ k: String) -> Double? {
+                        if let v = args[k] as? Double { return v }
+                        if let v = args[k] as? NSNumber { return v.doubleValue }
+                        if let v = args[k] as? Int { return Double(v) }
+                        if let v = args[k] as? String, let d = Double(v) { return d }
+                        return nil
+                    }
+                    if let index = intOf("element_index") {
                         try Tools.clickElement(index: index)
-                    } else if let x = (args["x"] as? Double) ?? (args["x"] as? Int).map(Double.init),
-                              let y = (args["y"] as? Double) ?? (args["y"] as? Int).map(Double.init) {
+                    } else if let x = doubleOf("x"), let y = doubleOf("y") {
                         let button = args["button"] as? String ?? "left"
-                        let count = args["click_count"] as? Int ?? 1
+                        let count = intOf("click_count") ?? 1
                         try Tools.clickAt(x: CGFloat(x), y: CGFloat(y), button: button, clickCount: count, app: args["app"] as? String)
                     } else {
-                        throw MCPError(code: -32602, message: "click requires element_index or (x,y)")
+                        throw MCPError(code: -32602, message: "click requires element_index or (x,y). args=\(args)")
                     }
                     return ["content": [["type": "text", "text": "ok"]]]
                 }
@@ -170,6 +183,7 @@ enum ToolRegistry {
                             "direction": ["type": "string", "enum": ["up", "down", "left", "right"]],
                             "pages": ["type": "integer"],
                             "element_index": ["type": "integer"],
+                            "app": ["type": "string"],
                         ] as [String: Any],
                         "required": ["direction"],
                         "additionalProperties": false,
@@ -179,8 +193,9 @@ enum ToolRegistry {
                     guard let dir = args["direction"] as? String else {
                         throw MCPError(code: -32602, message: "Missing scroll direction")
                     }
-                    let pages = args["pages"] as? Int ?? 1
-                    try Tools.scroll(direction: dir, pages: pages, index: args["element_index"] as? Int)
+                    let pages = (args["pages"] as? Int) ?? (args["pages"] as? NSNumber)?.intValue ?? 1
+                    let idx = (args["element_index"] as? Int) ?? (args["element_index"] as? NSNumber)?.intValue
+                    try Tools.scroll(direction: dir, pages: pages, index: idx, app: args["app"] as? String)
                     return ["content": [["type": "text", "text": "ok"]]]
                 }
             ),

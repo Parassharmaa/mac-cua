@@ -14,8 +14,6 @@ extension Tools {
         guard let app = matched else {
             throw MCPError(code: -32000, message: "Running application not found: \(bundleIdOrName)")
         }
-        app.activate(options: [.activateIgnoringOtherApps])
-        Thread.sleep(forTimeInterval: 0.15)
         let builder = AXTreeBuilder()
         let (runningApp, root) = try builder.build(forPID: app.processIdentifier, app: app)
         let text = AXSerializer.render(root: root, app: runningApp)
