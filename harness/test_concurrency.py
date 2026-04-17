@@ -3,8 +3,8 @@
 Sky can't do this (single codex app-server socket), so this test is mac-only.
 Simulates two agents driving the same Mac through two mac-cua processes.
 """
-import subprocess, sys, time, threading
-sys.path.insert(0, "/Users/paras/projects/mac-cua-mcp/harness")
+import os, subprocess, sys, time, threading
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from broker import Broker, MAC_CMD
 from ax_util import parse_tree, find_by
 

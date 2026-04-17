@@ -4,13 +4,27 @@ VERSION ?= 0.1.0
 BUILD_DIR := .build/release
 APP_BUNDLE := $(BUILD_DIR)/$(APP_NAME).app
 
-.PHONY: build release app sign clean test
+.PHONY: build release app sign clean test perf bench report
 
 build:
 	swift build
 
 release:
 	swift build -c release
+
+test: release
+	python3 -u harness/run_all.py
+
+perf: release
+	python3 -u harness/test_perf.py
+
+bench: perf
+	python3 -u harness/test_input_latency.py
+	python3 -u harness/test_stability.py
+
+report: release
+	python3 -u harness/run_all.py
+	@echo "Report written to harness/REPORT.md"
 
 app: release
 	rm -rf $(APP_BUNDLE)

@@ -5,8 +5,8 @@ Uses TextEdit as a typing sandbox. For each key spec, verify that:
 - mac-cua accepts the call
 Focuses on named keys (Return, Tab, arrows) and modifier combos (cmd+a).
 """
-import sys, time, subprocess
-sys.path.insert(0, "/Users/paras/projects/mac-cua-mcp/harness")
+import os, sys, time, subprocess
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from broker import make_brokers
 from ax_util import read_ax_value
 

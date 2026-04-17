@@ -1,6 +1,6 @@
 """Hammer each broker with 100 back-to-back calls to catch leaks or flakes."""
-import subprocess, time, sys
-sys.path.insert(0, "/Users/paras/projects/mac-cua-mcp/harness")
+import os, subprocess, time, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from broker import make_brokers
 
 

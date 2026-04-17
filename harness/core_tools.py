@@ -2,9 +2,9 @@
 """Comparative harness: runs each tool through Sky (cua) and mac-cua, asserts AX behavior."""
 import json, subprocess, time, sys, re, os
 sys.stdout.reconfigure(line_buffering=True)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-SKY = ["python3", "/Users/paras/Documents/Codex/2026-04-17-open-the-chrome-app/sky_cua.py"]
-MAC = ["/Users/paras/projects/mac-cua-mcp/.build/release/cua-mcp"]
+from broker import SKY_CMD as SKY, MAC_CMD as MAC
 
 GREEN, RED, YELLOW, RESET = "\033[32m", "\033[31m", "\033[33m", "\033[0m"
 

@@ -8,8 +8,8 @@ Target error strings (from reverse-engineering Sky's binary):
   - "Missing scroll direction"
   - "The element ID is no longer valid. Re-query the latest state with get_app_state..."
 """
-import sys, time, re, subprocess
-sys.path.insert(0, "/Users/paras/projects/mac-cua-mcp/harness")
+import os, sys, time, re, subprocess
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from broker import make_brokers
 
 

@@ -1,8 +1,26 @@
-"""Shared MCP broker subprocess client used by every harness test."""
-import json, subprocess
+"""Shared MCP broker subprocess client used by every harness test.
 
-SKY_CMD = ["python3", "/Users/paras/Documents/Codex/2026-04-17-open-the-chrome-app/sky_cua.py"]
-MAC_CMD = ["/Users/paras/projects/mac-cua-mcp/.build/release/cua-mcp"]
+Paths resolve in this order (first match wins):
+  1. CUA_MAC_CMD / CUA_SKY_CMD env vars (space-separated argv)
+  2. Defaults computed relative to this file's repo checkout
+     and the standard Codex install location.
+"""
+import json, os, shlex, subprocess, sys
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_REPO = os.path.dirname(_HERE)
+_DEFAULT_MAC = [os.path.join(_REPO, ".build/release/cua-mcp")]
+_DEFAULT_SKY = [sys.executable,
+                os.path.expanduser("~/Documents/Codex/2026-04-17-open-the-chrome-app/sky_cua.py")]
+
+
+def _env_argv(name, default):
+    raw = os.environ.get(name)
+    return shlex.split(raw) if raw else default
+
+
+SKY_CMD = _env_argv("CUA_SKY_CMD", _DEFAULT_SKY)
+MAC_CMD = _env_argv("CUA_MAC_CMD", _DEFAULT_MAC)
 
 
 class Broker:

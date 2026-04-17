@@ -1,6 +1,6 @@
 """Multi-step agent-style workflow — chains 5 tool calls per broker and verifies each step."""
-import subprocess, sys, time, re
-sys.path.insert(0, "/Users/paras/projects/mac-cua-mcp/harness")
+import os, subprocess, sys, time, re
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from broker import make_brokers
 from ax_util import parse_tree, find_by
 

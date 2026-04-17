@@ -1,6 +1,6 @@
 """Compare get_app_state latency between sky and mac-cua across several apps."""
-import time, sys, subprocess
-sys.path.insert(0, "/Users/paras/projects/mac-cua-mcp/harness")
+import os, time, sys, subprocess
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from broker import make_brokers
 
 

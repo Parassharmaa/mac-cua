@@ -3,8 +3,8 @@
 For each tool, time how long between sending the call and seeing the state
 change in AX. This catches overhead differences in event dispatch.
 """
-import subprocess, time, sys
-sys.path.insert(0, "/Users/paras/projects/mac-cua-mcp/harness")
+import os, subprocess, time, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from broker import make_brokers
 from ax_util import read_ax_value
 
