@@ -4,7 +4,7 @@ VERSION ?= 0.1.0
 BUILD_DIR := .build/release
 APP_BUNDLE := $(BUILD_DIR)/$(APP_NAME).app
 
-.PHONY: build release app sign clean test perf bench report
+.PHONY: build release app sign clean test perf bench report dist
 
 build:
 	swift build
@@ -40,4 +40,24 @@ sign: app
 	@echo "Ad-hoc signed. For stable TCC grants use a Developer ID identity instead of -."
 
 clean:
-	rm -rf .build
+	rm -rf .build dist
+
+dist: sign
+	rm -rf dist
+	mkdir -p dist/mac-cua-mcp-$(VERSION)/docs
+	cp -R $(APP_BUNDLE) dist/mac-cua-mcp-$(VERSION)/
+	cp README.md NOTES.md dist/mac-cua-mcp-$(VERSION)/
+	cp harness/HARNESS.md harness/REPORT.md dist/mac-cua-mcp-$(VERSION)/docs/ 2>/dev/null || true
+	printf '{\n  "mcpServers": {\n    "mac-cua": {\n      "command": "%s"\n    }\n  }\n}\n' "$$(pwd)/dist/mac-cua-mcp-$(VERSION)/$(APP_NAME).app/Contents/MacOS/cua-mcp" > dist/mac-cua-mcp-$(VERSION)/example.mcp.json
+	cd dist && zip -qr mac-cua-mcp-$(VERSION).zip mac-cua-mcp-$(VERSION)
+	@ls -lh dist/mac-cua-mcp-$(VERSION).zip
+	@echo ""
+	@echo "Dist bundle ready:"
+	@echo "  dist/mac-cua-mcp-$(VERSION).zip"
+	@echo "  dist/mac-cua-mcp-$(VERSION)/"
+	@echo "    $(APP_NAME).app     ad-hoc signed, ready to install"
+	@echo "    README.md           project overview"
+	@echo "    NOTES.md            Sky CUA reverse-engineering notes"
+	@echo "    example.mcp.json    MCP client registration example"
+	@echo "    docs/HARNESS.md     comparator harness catalog"
+	@echo "    docs/REPORT.md      last run_all.py scoreboard"
