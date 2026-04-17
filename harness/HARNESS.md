@@ -15,6 +15,7 @@ MCP processes and asserts identical behavior:
       test_press_key_vocab.py xdotool-style key vocab (25 specs)
       test_perf.py           get_app_state latency bench
       test_input_latency.py  tool-call → AX-visible-effect latency
+      test_stability.py      100× get_app_state hammer — no leaks / zero errors
       run_all.py             runs every suite and prints scoreboard
 
 ## Run everything
@@ -45,6 +46,14 @@ Total runtime ~4 minutes. Exit code 0 iff every suite passed.
     press_key 'z'    882ms   195ms   (mac 4.5× faster)
 
 Sky has ~600ms baseline overhead from its app-server RPC chain.
+
+### stability: 100 back-to-back get_app_state on Calculator
+
+    sky: 100/100 ok in 25.1s  (251ms/call)
+    mac: 100/100 ok in  1.9s  ( 19ms/call)   mac 13× faster under load
+
+Zero errors from either broker — no session leaks, no intermittent
+failures, steady latency across the run.
 
 ## What each test covers
 

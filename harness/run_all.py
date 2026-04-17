@@ -8,6 +8,7 @@ TESTS = [
     ("press_key vocab (25)",    "test_press_key_vocab.py"),
     ("perf bench (4 apps)",     "test_perf.py"),
     ("input latency (2 ops)",   "test_input_latency.py"),
+    ("stability (100 calls)",   "test_stability.py"),
 ]
 
 GREEN, RED, YELLOW, RESET = "\033[32m", "\033[31m", "\033[33m", "\033[0m"
