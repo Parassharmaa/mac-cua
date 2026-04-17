@@ -1,18 +1,19 @@
 # mac-cua-mcp harness report
-Generated: 2026-04-18T05:04:42
+Generated: 2026-04-18T05:17:06
 
-**8/8 suites passed** in 295.6s
+**8/9 suites passed** in 343.7s
 
 | suite | status | duration |
 | --- | --- | --- |
-| core tools (9) (core_tools.py) | ✅ pass | 65.5s |
-| error contract (4) (test_error_contract.py) | ✅ pass | 4.9s |
-| press_key vocab (25) (test_press_key_vocab.py) | ✅ pass | 145.2s |
-| perf bench (4 apps) (test_perf.py) | ✅ pass | 19.0s |
-| input latency (2 ops) (test_input_latency.py) | ✅ pass | 20.5s |
-| stability (100 calls) (test_stability.py) | ✅ pass | 28.1s |
-| concurrency (2 agents) (test_concurrency.py) | ✅ pass | 1.6s |
+| core tools (9) (core_tools.py) | ✅ pass | 66.7s |
+| error contract (4) (test_error_contract.py) | ✅ pass | 4.7s |
+| press_key vocab (25) (test_press_key_vocab.py) | ✅ pass | 146.9s |
+| perf bench (4 apps) (test_perf.py) | ✅ pass | 21.8s |
+| input latency (2 ops) (test_input_latency.py) | ✅ pass | 21.8s |
+| stability (100 calls) (test_stability.py) | ✅ pass | 37.3s |
+| concurrency (2 agents) (test_concurrency.py) | ❌ fail | 31.6s |
 | workflow (5-step calc) (test_workflow.py) | ✅ pass | 10.9s |
+| screenshot content (test_screenshot.py) | ✅ pass | 2.1s |
 
 ## Suite outputs
 
@@ -28,7 +29,7 @@ MAC'
   [32mPASS[0m  sky accepted=True  mac accepted=True
 
 [1m=== summary ===[0m
-  [32mPASS[0m  list_apps: common=16  only_sky=8  only_mac=0
+  [32mPASS[0m  list_apps: common=17  only_sky=7  only_mac=0
   [32mPASS[0m  get_app_state: sky_nodes=24 mac_nodes=18  both-see-scroll-area=True
   [32mPASS[0m  scroll_textedit: sky: 0.0→0.587371512482 (ok)  mac: 0.0→0.186000978953 (ok)
   [32mPASS[0m  press_key: sky="tree-has-100=True  disp='338638.81578947'  (rejects=0)"  mac="tree-has-100=True  disp='338638.81578947'  (rejects=0)"  expected=100
@@ -93,40 +94,40 @@ sky: 25/25  mac: 25/25
 ```
 app               sky min(s)  mac min(s)  sky lines  mac lines
 ──────────────────────────────────────────────────────────────
-Calculator             0.208       0.018         51         45
-TextEdit               0.126       0.006         28         18
-Finder                 0.679       0.090         97        171
-Notes                  0.985       1.653        168        446
+Calculator             0.198       0.098         51         45
+TextEdit               0.128       0.056         28         18
+Finder                 0.624       0.371         97        171
+Notes                  0.969       1.994        168        446
 ```
 
 ### input latency (2 ops)
 
 ```
 [type_text 'X']  — broker call → AX visible
-  sky: min=604ms  avg=738ms  max=1215ms  (n=5)
-  mac: min=152ms  avg=159ms  max=162ms  (n=5)
+  sky: min=617ms  avg=750ms  max=1244ms  (n=5)
+  mac: min=150ms  avg=159ms  max=169ms  (n=5)
 
 [press_key 'z']
-  sky: min=613ms  avg=622ms  max=632ms  (n=5)
-  mac: min=192ms  avg=201ms  max=206ms  (n=5)
+  sky: min=614ms  avg=762ms  max=962ms  (n=5)
+  mac: min=193ms  avg=197ms  max=203ms  (n=5)
 ```
 
 ### stability (100 calls)
 
 ```
 [stability: 100 × get_app_state Calculator]
-  sky: 100/100 ok in 24.3s  (243.2ms/call)
-  mac: 100/100 ok in 1.8s  (18.4ms/call)
+  sky: 100/100 ok in 23.5s  (234.6ms/call)
+  mac: 100/100 ok in 12.0s  (119.5ms/call)
 ```
 
 ### concurrency (2 agents)
 
 ```
 [two-agent concurrent click on Calculator]
-  agent 0: idx=16 click=ok
-  agent 1: idx=26 click=ok
+  None
+  None
 
-both agents succeeded
+concurrent access broke something
 ```
 
 ### workflow (5-step calc)
@@ -135,5 +136,16 @@ both agents succeeded
 [workflow: clear → 9 × 9 = → expect 81]
   sky: PASS  tree-has-81=True
   mac: PASS  tree-has-81=True
+```
+
+### screenshot content
+
+```
+[get_app_state content shape]
+  sky: text(2190ch) + image/png(156444b64)
+  mac: text(2379ch) + image/png(130460b64)
+
+sky includes screenshot: True
+mac includes screenshot: True
 ```
 

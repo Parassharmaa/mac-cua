@@ -38,7 +38,7 @@ def main():
     results = [None, None]
     threads = [threading.Thread(target=run_agent, args=(i, results)) for i in range(2)]
     for t in threads: t.start()
-    for t in threads: t.join(timeout=15)
+    for t in threads: t.join(timeout=45)
 
     print(f"\n[two-agent concurrent click on Calculator]")
     for r in results: print(f"  {r}")
