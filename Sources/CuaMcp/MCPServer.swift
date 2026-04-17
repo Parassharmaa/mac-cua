@@ -305,9 +305,23 @@ final class MCPServer {
             let result = try dispatch(method: method, params: params)
             writeResponse(to: stdout, id: id!, result: result)
         } catch let err as MCPError {
-            writeError(to: stdout, id: id!, code: err.code, message: err.message)
+            if method == "tools/call" {
+                writeResponse(to: stdout, id: id!, result: [
+                    "content": [["type": "text", "text": err.message]],
+                    "isError": true,
+                ])
+            } else {
+                writeError(to: stdout, id: id!, code: err.code, message: err.message)
+            }
         } catch {
-            writeError(to: stdout, id: id!, code: -32603, message: "Internal error: \(error)")
+            if method == "tools/call" {
+                writeResponse(to: stdout, id: id!, result: [
+                    "content": [["type": "text", "text": "Internal error: \(error)"]],
+                    "isError": true,
+                ])
+            } else {
+                writeError(to: stdout, id: id!, code: -32603, message: "Internal error: \(error)")
+            }
         }
     }
 

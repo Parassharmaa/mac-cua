@@ -26,13 +26,14 @@ class Broker:
         r = self.rpc("tools/call", {"name": tool, "arguments": args or {}})
         if "error" in r:
             return {"error": r["error"].get("message", str(r["error"]))}
-        content = r["result"].get("content", [])
-        if content:
-            txt = content[0].get("text", "")
-            if "Computer Use is not active" in txt or txt.startswith("The user changed"):
-                return {"sky_rejected": txt}
-            return {"text": txt}
-        return {"raw": r["result"]}
+        result = r["result"]
+        content = result.get("content", [])
+        txt = content[0].get("text", "") if content else ""
+        if result.get("isError"):
+            return {"error": txt}
+        if "Computer Use is not active" in txt or txt.startswith("The user changed"):
+            return {"sky_rejected": txt}
+        return {"text": txt} if content else {"raw": result}
 
     def index_arg(self, idx):
         """Sky expects string, mac expects int."""
