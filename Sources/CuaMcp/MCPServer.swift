@@ -109,6 +109,113 @@ enum ToolRegistry {
                 }
             ),
             Tool(
+                name: "perform_secondary_action",
+                description: "Perform a named AX action on an element (e.g. Raise, ShowMenu, ShowAlternateUI).",
+                schema: [
+                    "name": "perform_secondary_action",
+                    "description": "Perform a named AX action on an element.",
+                    "inputSchema": [
+                        "type": "object",
+                        "properties": [
+                            "element_index": ["type": "integer"],
+                            "action": ["type": "string"],
+                        ] as [String: Any],
+                        "required": ["element_index", "action"],
+                        "additionalProperties": false,
+                    ],
+                ],
+                handler: { args in
+                    guard let index = args["element_index"] as? Int,
+                          let action = args["action"] as? String else {
+                        throw MCPError(code: -32602, message: "perform_secondary_action requires element_index and action")
+                    }
+                    try Tools.performSecondaryAction(index: index, action: action)
+                    return ["content": [["type": "text", "text": "ok"]]]
+                }
+            ),
+            Tool(
+                name: "set_value",
+                description: "Set an element's value directly (faster and more reliable than type_text for text fields).",
+                schema: [
+                    "name": "set_value",
+                    "description": "Set an element's value directly.",
+                    "inputSchema": [
+                        "type": "object",
+                        "properties": [
+                            "element_index": ["type": "integer"],
+                            "value": ["type": "string"],
+                        ] as [String: Any],
+                        "required": ["element_index", "value"],
+                        "additionalProperties": false,
+                    ],
+                ],
+                handler: { args in
+                    guard let index = args["element_index"] as? Int,
+                          let value = args["value"] as? String else {
+                        throw MCPError(code: -32602, message: "set_value requires element_index and value")
+                    }
+                    try Tools.setValue(index: index, value: value)
+                    return ["content": [["type": "text", "text": "ok"]]]
+                }
+            ),
+            Tool(
+                name: "scroll",
+                description: "Scroll in a direction. If element_index is given, scroll while pointing at that element.",
+                schema: [
+                    "name": "scroll",
+                    "description": "Scroll in a direction.",
+                    "inputSchema": [
+                        "type": "object",
+                        "properties": [
+                            "direction": ["type": "string", "enum": ["up", "down", "left", "right"]],
+                            "pages": ["type": "integer"],
+                            "element_index": ["type": "integer"],
+                        ] as [String: Any],
+                        "required": ["direction"],
+                        "additionalProperties": false,
+                    ],
+                ],
+                handler: { args in
+                    guard let dir = args["direction"] as? String else {
+                        throw MCPError(code: -32602, message: "Missing scroll direction")
+                    }
+                    let pages = args["pages"] as? Int ?? 1
+                    try Tools.scroll(direction: dir, pages: pages, index: args["element_index"] as? Int)
+                    return ["content": [["type": "text", "text": "ok"]]]
+                }
+            ),
+            Tool(
+                name: "drag",
+                description: "Drag from one screen point to another.",
+                schema: [
+                    "name": "drag",
+                    "description": "Drag from one screen point to another.",
+                    "inputSchema": [
+                        "type": "object",
+                        "properties": [
+                            "from_x": ["type": "number"],
+                            "from_y": ["type": "number"],
+                            "to_x": ["type": "number"],
+                            "to_y": ["type": "number"],
+                        ] as [String: Any],
+                        "required": ["from_x", "from_y", "to_x", "to_y"],
+                        "additionalProperties": false,
+                    ],
+                ],
+                handler: { args in
+                    func num(_ k: String) -> CGFloat? {
+                        if let d = args[k] as? Double { return CGFloat(d) }
+                        if let i = args[k] as? Int { return CGFloat(i) }
+                        return nil
+                    }
+                    guard let fx = num("from_x"), let fy = num("from_y"), let tx = num("to_x"), let ty = num("to_y") else {
+                        throw MCPError(code: -32602, message: "drag requires from_x, from_y, to_x, to_y")
+                    }
+                    try Tools.drag(fromX: fx, fromY: fy, toX: tx, toY: ty)
+                    return ["content": [["type": "text", "text": "ok"]]]
+                }
+            ),
+            Tool(
                 name: "get_app_state",
                 description: "Activate the target app and return its accessibility tree with numbered element indices. Call this first each turn before any other tool.",
                 schema: [

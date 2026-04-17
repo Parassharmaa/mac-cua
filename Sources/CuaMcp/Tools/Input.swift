@@ -49,12 +49,96 @@ extension Tools {
 
     static func clickElement(index: Int) throws {
         guard let element = ElementCache.shared.lookup(index: index) else {
-            throw MCPError(code: -32602, message: "Unknown element index \(index). Call get_app_state first.")
+            throw MCPError(code: -32602, message: "The element ID is no longer valid. Re-query the latest state with get_app_state before sending more actions.")
         }
         let err = AXUIElementPerformAction(element, "AXPress" as CFString)
         if err != .success {
             throw MCPError(code: -32000, message: "AXPress failed on element \(index) (AXError=\(err.rawValue)). This element may not support press — try coordinate click.")
         }
+    }
+
+    static func performSecondaryAction(index: Int, action: String) throws {
+        guard let element = ElementCache.shared.lookup(index: index) else {
+            throw MCPError(code: -32602, message: "The element ID is no longer valid. Re-query the latest state with get_app_state before sending more actions.")
+        }
+        let normalized = action.hasPrefix("AX") ? action : "AX\(action)"
+        let err = AXUIElementPerformAction(element, normalized as CFString)
+        if err != .success {
+            throw MCPError(code: -32000, message: "\(action) is not a valid secondary action for element \(index) (AXError=\(err.rawValue))")
+        }
+    }
+
+    static func setValue(index: Int, value: String) throws {
+        guard let element = ElementCache.shared.lookup(index: index) else {
+            throw MCPError(code: -32602, message: "The element ID is no longer valid. Re-query the latest state with get_app_state before sending more actions.")
+        }
+        var settable: DarwinBoolean = false
+        AXUIElementIsAttributeSettable(element, "AXValue" as CFString, &settable)
+        guard settable.boolValue else {
+            throw MCPError(code: -32000, message: "Cannot set a value for an element that is not settable")
+        }
+        let err = AXUIElementSetAttributeValue(element, "AXValue" as CFString, value as CFString)
+        if err != .success {
+            throw MCPError(code: -32000, message: "Failed to set value (AXError=\(err.rawValue))")
+        }
+    }
+
+    static func scroll(direction: String, pages: Int, index: Int? = nil) throws {
+        guard Permissions.axTrusted() else {
+            throw MCPError(code: -32000, message: "Accessibility permission not granted.")
+        }
+        let magnitude = Int32(max(1, pages) * 10)
+        let (dx, dy): (Int32, Int32)
+        switch direction.lowercased() {
+        case "up": (dx, dy) = (0, magnitude)
+        case "down": (dx, dy) = (0, -magnitude)
+        case "left": (dx, dy) = (magnitude, 0)
+        case "right": (dx, dy) = (-magnitude, 0)
+        default:
+            throw MCPError(code: -32602, message: "Missing scroll direction (up/down/left/right)")
+        }
+        if let index, let element = ElementCache.shared.lookup(index: index),
+           let center = centerOf(element: element) {
+            moveMouseSync(to: center)
+        }
+        let event = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2, wheel1: dy, wheel2: dx, wheel3: 0)
+        event?.post(tap: .cghidEventTap)
+        Thread.sleep(forTimeInterval: 0.05)
+    }
+
+    static func drag(fromX: CGFloat, fromY: CGFloat, toX: CGFloat, toY: CGFloat) throws {
+        guard Permissions.axTrusted() else {
+            throw MCPError(code: -32000, message: "Accessibility permission not granted.")
+        }
+        animateCursorSync(to: CGPoint(x: fromX, y: fromY), duration: 0.25)
+        let src = CGEventSource(stateID: .combinedSessionState)
+        let down = CGEvent(mouseEventSource: src, mouseType: .leftMouseDown, mouseCursorPosition: CGPoint(x: fromX, y: fromY), mouseButton: .left)
+        down?.post(tap: .cghidEventTap)
+        Thread.sleep(forTimeInterval: 0.05)
+        let steps = 10
+        for s in 1...steps {
+            let t = CGFloat(s) / CGFloat(steps)
+            let x = fromX + (toX - fromX) * t
+            let y = fromY + (toY - fromY) * t
+            let move = CGEvent(mouseEventSource: src, mouseType: .leftMouseDragged, mouseCursorPosition: CGPoint(x: x, y: y), mouseButton: .left)
+            move?.post(tap: .cghidEventTap)
+            Thread.sleep(forTimeInterval: 0.02)
+        }
+        let up = CGEvent(mouseEventSource: src, mouseType: .leftMouseUp, mouseCursorPosition: CGPoint(x: toX, y: toY), mouseButton: .left)
+        up?.post(tap: .cghidEventTap)
+        Thread.sleep(forTimeInterval: 0.05)
+    }
+
+    private static func centerOf(element: AXUIElement) -> CGPoint? {
+        guard let position = AXTreeBuilder.pointAttribute(element, "AXPosition"),
+              let size = AXTreeBuilder.sizeAttribute(element, "AXSize") else { return nil }
+        return CGPoint(x: position.x + size.width / 2, y: position.y + size.height / 2)
+    }
+
+    private static func moveMouseSync(to point: CGPoint) {
+        animateCursorSync(to: point, duration: 0.2)
+        let move = CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, mouseCursorPosition: point, mouseButton: .left)
+        move?.post(tap: .cghidEventTap)
     }
 
     private static func activate(appIdentifier: String) throws {
