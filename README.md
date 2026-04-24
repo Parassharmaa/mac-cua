@@ -6,15 +6,22 @@ Spaces, or reordering windows in the z-stack.
 
 ## Tools
 
-Exposes nine tools over MCP stdio:
+Exposes twelve tools over MCP stdio:
 
-    list_apps        get_app_state    click
-    press_key        type_text        set_value
-    scroll           drag             perform_secondary_action
+    list_apps              get_app_state         click
+    press_key              type_text             set_value
+    scroll                 drag                  perform_secondary_action
+    get_clipboard          set_clipboard         get_permissions
 
 Element-indexed actions dispatch through the accessibility tree.
 Pixel-coordinate actions route through a per-pid SkyLight event path
 that remains trusted by Chromium/Electron renderer filters.
+
+`get_app_state` accepts `capture_mode`:
+
+- `som` (default) — AX tree + window screenshot.
+- `ax` — AX tree only; no Screen Recording dependency.
+- `vision` — screenshot only; for vision-first VLMs.
 
 ## Quick start
 
@@ -55,7 +62,7 @@ and pulsing on click. Fades when idle. On by default — set
 
 ## Eval
 
-`make eval` runs an in-process Swift eval of 16 contract cases:
+`make eval` runs an in-process Swift eval of 21 contract cases:
 
 - Calculator click with display readback.
 - TextEdit type (ASCII, CJK) with AX value readback.
@@ -65,6 +72,14 @@ and pulsing on click. Fades when idle. On by default — set
 - Chrome / Slack / VS Code AX dispatch while backgrounded.
 - Chrome closed-loop pixel click with `document.title` verification
   (requires Chrome → View → Developer → Allow JavaScript from Apple Events).
+- Drag, double-click, cmd+a key combo, 100× click stability bench
+  (~10 ms/call), clipboard set/get round-trip.
+
+Eval commands:
+
+    make eval                     # 20-case table (default)
+    cua-mcp eval --fast           # skip the 100× perf case
+    cua-mcp eval-json             # line-delimited JSON output
 
 ## Architecture
 
