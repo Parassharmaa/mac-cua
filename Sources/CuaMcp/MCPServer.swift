@@ -409,8 +409,24 @@ final class MCPServer {
                 "prompts": ["listChanged": false],
             ],
             "serverInfo": serverInfo,
-            "instructions":
-                "Native macOS Computer Use MCP server. Call get_app_state first each turn, then act on returned element indices.",
+            "instructions": """
+                Native macOS Computer Use MCP server.
+
+                Usage:
+                  1. Call get_app_state on a target app each turn before
+                     issuing any action. The returned tree assigns element
+                     indices used by click / set_value / scroll /
+                     perform_secondary_action.
+                  2. Tool actions run in the background: the target app
+                     does not come to the foreground, the user's cursor
+                     does not move, and their frontmost app is preserved.
+                  3. Prefer element_index over pixel coordinates for AX-
+                     addressable targets — faster, more reliable, and not
+                     subject to window-layout drift.
+                  4. Pixel clicks into Chromium/Electron web content work
+                     via a trusted per-pid SkyLight path; a one-time primer
+                     click satisfies the renderer's user-activation gate.
+                """,
         ]
     }
 
