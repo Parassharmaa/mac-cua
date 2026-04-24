@@ -368,6 +368,52 @@ enum ToolRegistry {
                 }
             ),
             Tool(
+                name: "wait_for_element",
+                description:
+                    "Poll the target app's AX tree until an element matches `predicate` (substring-matched case-insensitively against each line of the rendered tree). Returns the element's index on success. Use between a click and the next action to wait for a dialog / new tab / loading state to resolve, instead of sleeping blindly.",
+                schema: [
+                    "name": "wait_for_element",
+                    "description":
+                        "Wait for an element matching `predicate` in the target app's AX tree. Returns the element's index on success.",
+                    "inputSchema": [
+                        "type": "object",
+                        "properties": [
+                            "app": [
+                                "type": "string",
+                                "description": "Bundle identifier or app name.",
+                            ],
+                            "predicate": [
+                                "type": "string",
+                                "description":
+                                    "Substring to find in a tree line (case-insensitive). e.g. 'button save' or 'sheet'.",
+                            ],
+                            "timeout_ms": [
+                                "type": "integer",
+                                "description": "Max wait before timing out (default 5000).",
+                            ],
+                        ] as [String: Any],
+                        "required": ["app", "predicate"],
+                        "additionalProperties": false,
+                    ],
+                ],
+                handler: { args in
+                    guard let app = args["app"] as? String, !app.isEmpty else {
+                        throw MCPError(code: -32602, message: "wait_for_element requires 'app'")
+                    }
+                    guard let predicate = args["predicate"] as? String, !predicate.isEmpty else {
+                        throw MCPError(
+                            code: -32602, message: "wait_for_element requires 'predicate'")
+                    }
+                    let timeout =
+                        (args["timeout_ms"] as? Int)
+                        ?? (args["timeout_ms"] as? NSNumber)?.intValue
+                        ?? 5000
+                    let idx = try Tools.waitForElement(
+                        app: app, matching: predicate, timeoutMs: timeout)
+                    return ["content": [["type": "text", "text": "element_index=\(idx)"]]]
+                }
+            ),
+            Tool(
                 name: "paste",
                 description:
                     "Paste `text` into the currently focused input of the target app. Routes via NSPasteboard + cmd+v — faster than type_text for long or unicode-heavy content and avoids Chromium's per-scalar keyboard trust filter. Prior clipboard contents are restored after the paste.",
