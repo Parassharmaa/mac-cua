@@ -7,7 +7,7 @@ extension Tools {
     static func pressKey(_ spec: String, app: String? = nil) throws {
         try requireAX()
         let pid = try resolvePid(app)
-        SkyFocus.shared.installIfNeeded(for: pid)
+        AXEnablement.shared.installIfNeeded(for: pid)
         guard let combo = KeyParser.parse(spec) else {
             throw MCPError(code: -32602, message: "Unrecognized key: \(spec). Use xdotool-style names like Return, Tab, super+c, KP_0.")
         }
@@ -25,7 +25,7 @@ extension Tools {
     static func typeText(_ text: String, app: String? = nil) throws {
         try requireAX()
         let pid = try resolvePid(app)
-        SkyFocus.shared.installIfNeeded(for: pid)
+        AXEnablement.shared.installIfNeeded(for: pid)
         hoverOverFocusedElement(pid: pid)
         pulseCursor()
         // Arm background-focus suppression for the whole operation.
@@ -45,13 +45,13 @@ extension Tools {
     static func clickAt(x: CGFloat, y: CGFloat, button: String = "left", clickCount: Int = 1, app: String? = nil) throws {
         try requireAX()
         let pid = try resolvePid(app)
-        SkyFocus.shared.installIfNeeded(for: pid)
+        AXEnablement.shared.installIfNeeded(for: pid)
         let guardRail = BackgroundFocus.activate(pid: pid)
         defer { guardRail.restore() }
-        // Sky treats x/y as screenshot-pixel coordinates (0,0 = top-left of
-        // the focused window's captured PNG). We convert to desktop points
-        // using the window's AXPosition + backing scale factor so models
-        // can pass coordinates they read off the screenshot directly.
+        // x/y are screenshot-pixel coordinates (0,0 = top-left of the
+        // focused window's captured PNG). Convert to desktop points using
+        // the window's AXPosition + backing scale factor so models can pass
+        // coordinates they read off the screenshot directly.
         let point = convertScreenshotPixelToDesktopPoint(x: x, y: y, pid: pid)
         // Phase 2 — primer click for Chromium-family targets. Chromium's
         // user-activation gate blocks things like `window.open`, fullscreen
@@ -82,7 +82,7 @@ extension Tools {
     static func clickElement(index: Int) throws {
         let element = try lookupElement(index)
         let targetPid = pidOfElement(element)
-        SkyFocus.shared.installIfNeeded(for: targetPid)
+        AXEnablement.shared.installIfNeeded(for: targetPid)
         if let center = centerOfElement(element) {
             animateCursorSync(to: center, duration: 0.25)
             pulseCursor()
@@ -109,7 +109,7 @@ extension Tools {
             throw MCPError(code: -32000, message: "\(action) is not a valid secondary action for element \(index) (available: \(names))")
         }
         let targetPid = pidOfElement(element)
-        SkyFocus.shared.installIfNeeded(for: targetPid)
+        AXEnablement.shared.installIfNeeded(for: targetPid)
         if let center = centerOfElement(element) {
             animateCursorSync(to: center, duration: 0.25)
             pulseCursor()
@@ -127,7 +127,7 @@ extension Tools {
             throw MCPError(code: -32000, message: "Cannot set a value for an element that is not settable")
         }
         let targetPid = pidOfElement(element)
-        SkyFocus.shared.installIfNeeded(for: targetPid)
+        AXEnablement.shared.installIfNeeded(for: targetPid)
         if let center = centerOfElement(element) {
             animateCursorSync(to: center, duration: 0.25)
             pulseCursor()
@@ -143,7 +143,7 @@ extension Tools {
     static func scroll(direction: String, pages: Int, index: Int? = nil, app: String? = nil) throws {
         try requireAX()
         let pid = try resolvePid(app)
-        SkyFocus.shared.installIfNeeded(for: pid)
+        AXEnablement.shared.installIfNeeded(for: pid)
         let target = try resolveScrollTarget(index: index, pid: pid)
         let dir = try parseDirection(direction)
         if let element = target.element {

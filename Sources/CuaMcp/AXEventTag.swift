@@ -1,12 +1,13 @@
 import Foundation
 import CoreGraphics
 
-/// Tag synthesized CGEvents with Apple's `AXESynthesizedIgnoreEventSourceID`
-/// so macOS treats them as "ignore" events — same mechanism Sky uses to
-/// avoid focus-steal when posting events to a background app.
+/// Tag synthesized `CGEvent`s with Apple's `AXESynthesizedIgnoreEventSourceID`
+/// so macOS treats them as "ignore" events — the window server delivers
+/// them to the target without the usual "bring target to front" side
+/// effect.
 ///
-/// Mechanism: `AccessibilitySupport.framework` (a private framework re-exported
-/// from the SDK at build time) exposes two int64 constants:
+/// Mechanism: `AccessibilitySupport.framework` (a private framework
+/// re-exported from the SDK at build time) exposes two int64 constants:
 ///
 ///   • `AXESynthesizedEventSourceID`        — marks events as AX-synthesized
 ///   • `AXESynthesizedIgnoreEventSourceID`  — marks events the window server

@@ -159,7 +159,8 @@ final class AXTreeBuilder {
         return s
     }
 
-    /// Cap number of children walked per node — mirrors how Sky elides long lists.
+    /// Cap number of children walked per node — keeps tree output bounded
+    /// for apps with very long lists (e.g. Finder's file list, Notes sidebar).
     private func collapseRepeated(_ children: [AXUIElement], keep: Int) -> [AXUIElement] {
         if children.count <= keep + 5 { return children }
         return Array(children.prefix(keep))
@@ -238,11 +239,11 @@ enum AXSerializer {
         }
         renderNode(root, indent: 0, into: &out)
 
-        // Sky emits a "The focused UI element is N …" trailer at the end of
-        // its AX tree. This is the biggest practical signal for models
-        // deciding whether to type_text immediately vs first clicking a
-        // text field. Locate the focused node in our walked subtree and
-        // emit it with the same shape.
+        // Emit a "The focused UI element is N …" trailer at the end of
+        // the AX tree. Biggest practical signal for models deciding
+        // whether to type_text immediately vs first clicking a text
+        // field. Locate the focused node in the walked subtree and
+        // emit it inline.
         if let focused = firstFocusedLeaf(root) {
             out += "\nThe focused UI element is \(focused.index) \(roleLabel(focused))"
             let inline = inlineDescriptors(focused)
@@ -253,9 +254,9 @@ enum AXSerializer {
         return out
     }
 
-    /// Per-bundle contextual hints Sky embeds at the top of get_app_state.
-    /// These are compact operating guidelines that steer the model without
-    /// lengthening the tree body.
+    /// Per-bundle contextual hints embedded at the top of get_app_state.
+    /// Compact operating guidelines that steer the model without lengthening
+    /// the tree body.
     private static func appSpecificInstructions(bundleId: String) -> String? {
         switch bundleId {
         case "com.google.Chrome", "com.google.Chrome.canary",
@@ -346,7 +347,7 @@ enum AXSerializer {
         return mods
     }
 
-    /// Match Sky's inline label packing:
+    /// Inline label packing:
     ///   • collapse exact duplicates across title/description/identifier
     ///     (e.g. `button Description: Percent, ID: Percent` → `button Percent`)
     ///   • drop the `Help:` prefix when help duplicates description

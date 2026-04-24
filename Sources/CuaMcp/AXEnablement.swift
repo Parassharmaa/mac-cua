@@ -1,63 +1,66 @@
 import AppKit
 import Foundation
 
-/// Focus-free app interaction — a public-API-first shim that falls back to
-/// Apple's private `AccessibilitySupport` framework when the public paths
-/// aren't enough.
+/// AX enablement shim. Writes the two boolean attributes that tell a
+/// target application "an AX client is actually here, please build your
+/// full accessibility tree":
 ///
-/// Strategy in order of preference:
-///   1. `AXUIElementSetAttributeValue(app, kAXEnhancedUserInterface, true)` —
-///      public, tells the target to enter AX-optimized mode (keeps tree fresh).
-///   2. `SyntheticAppFocusEnforcer` — private class from Apple's own
-///      `AccessibilitySupport.framework`. Installs an event tap that tells the
-///      target "you are frontmost" without actually changing the OS frontmost
-///      app. This is exactly what Codex's Sky plugin does.
+///   - `AXEnhancedUserInterface` — the legacy AppleScript-era hint.
+///     Native AppKit apps accept it; most Cocoa apps respond by keeping
+///     their AX tree fresh while backgrounded.
+///   - `AXManualAccessibility` — the modern Chromium/Electron hint.
+///     Chrome, Slack, VS Code, Discord, and other Blink shells ship
+///     with their web accessibility pipeline off by default and flip it
+///     on only when either attribute is set. Without this, webpages
+///     render as bare group elements in the AX tree.
 ///
-/// The private path is best-effort: if dlopen or class lookup fails (e.g. OS
-/// upgrade renames the class), we quietly fall back to the public shim and
-/// input still works — just with a brief focus flicker.
-final class SkyFocus {
-    static let shared = SkyFocus()
+/// Chromium-family apps reset `AXEnhancedUserInterface` on some state
+/// transitions (occlusion, Space switch, tab switch), so we re-assert
+/// every snapshot for them. Native AppKit apps take the assertion
+/// permanently — we cache that to avoid redundant writes.
+final class AXEnablement {
+    static let shared = AXEnablement()
     private init() {}
 
-    private var installed: [pid_t: Any] = [:]
-    private var enforcerClass: AnyClass? = {
-        _ = dlopen("/System/Library/PrivateFrameworks/AccessibilitySupport.framework/AccessibilitySupport", RTLD_LAZY)
-        // Swift-mangled name for `AccessibilitySupport.SyntheticAppFocusEnforcer`.
-        return NSClassFromString("_TtC20AccessibilitySupport25SyntheticAppFocusEnforcer")
-    }()
+    /// pids that have already accepted the attribute write. Native AppKit
+    /// apps land here permanently.
+    private var stableInstalled: Set<pid_t> = []
     private let queue = DispatchQueue(label: "cua-mcp.skyfocus")
 
     func installIfNeeded(for pid: pid_t) {
         queue.sync {
-            if installed[pid] != nil { return }
-            // Public layer: enhanced UI keeps AX tree accurate on a background app.
             let axApp = AXUIElementCreateApplication(pid)
+            // Chromium-family: always re-write. They reset the attribute
+            // on backgrounding/tab switches, so caching "installed" is
+            // incorrect — the flag may be off again by the time we re-read
+            // the tree.
+            let isChromium = isChromiumPid(pid)
+            if stableInstalled.contains(pid) && !isChromium { return }
             AXUIElementSetAttributeValue(axApp, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue)
-            // Chrome/Chromium and Electron apps ship with a minimal AX tree by
-            // default for perf. Flipping AXManualAccessibility tells them to
-            // build the full tree (with text content, roles, etc.) — without
-            // this, web pages show up as bare group elements.
             AXUIElementSetAttributeValue(axApp, "AXManualAccessibility" as CFString, kCFBooleanTrue)
-
-            // Private layer: SyntheticAppFocusEnforcer would prevent the
-            // target app from reactivating itself on receiving events, but
-            // it's a pure-Swift class (not NSObject-derived) with no
-            // exported init symbol we can `dlsym`. We skip allocation —
-            // FocusGuard below gives us a best-effort equivalent.
-            installed[pid] = NSNull()
+            if !isChromium { stableInstalled.insert(pid) }
         }
+    }
+
+    private func isChromiumPid(_ pid: pid_t) -> Bool {
+        guard let bid = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier
+        else { return false }
+        let lower = bid.lowercased()
+        return lower.hasPrefix("com.google.chrome")
+            || lower.hasPrefix("com.microsoft.edgemac")
+            || lower.hasPrefix("com.brave.browser")
+            || lower.hasPrefix("company.thebrowser.browser")
+            || lower == "com.tinyspeck.slackmacgap"
+            || lower == "com.microsoft.vscode"
+            || lower.hasPrefix("com.hnc.discord")
+            || lower.hasPrefix("notion")
     }
 }
 
 /// Snapshot + restore the user's frontmost app around a tool call.
-///
-/// Sky's `SyntheticAppFocusEnforcer` + `SystemFocusStealPreventer` pair
-/// prevents the target app from ever noticing that it isn't frontmost; we
-/// can't replicate that via public APIs (see SkyFocus above). The next-best
-/// thing is to let the target steal focus briefly, then snap the user's
-/// original app back. This produces a ~100ms flicker but leaves the user
-/// where they started.
+/// Used only as a fallback when the reactive `SystemFocusStealPreventer`
+/// observer misses an activation. Accepts a brief flicker — if you see
+/// it, the preventer should have caught this case and didn't.
 ///
 /// Usage:
 /// ```
@@ -116,7 +119,7 @@ private func skyFocusDebug(_ msg: String) {
 ///   Layer 1 — **AX enablement**: `AXManualAccessibility` /
 ///             `AXEnhancedUserInterface` on the target root element, so
 ///             Chromium/Electron build a full AX tree and respect AX
-///             attribute writes. Cached per-pid via `SkyFocus`.
+///             attribute writes. Cached per-pid via `AXEnablement`.
 ///
 ///   Layer 3 — **Reactive** (`SystemFocusStealPreventer`): install an
 ///             `NSWorkspace.didActivateApplicationNotification` observer
@@ -144,7 +147,7 @@ struct BackgroundFocus {
     private let preventerHandle: SystemFocusStealPreventer.Handle?
 
     static func activate(pid: pid_t) -> BackgroundFocus {
-        SkyFocus.shared.installIfNeeded(for: pid)
+        AXEnablement.shared.installIfNeeded(for: pid)
 
         let ws = NSWorkspace.shared
         guard let frontmost = ws.frontmostApplication else {

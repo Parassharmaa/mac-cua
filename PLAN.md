@@ -33,7 +33,7 @@ window event handler doesn't subscribe to.
 Three-layer stack applied before any event dispatch to a non-frontmost
 target:
 
-1. **AX enablement** (`SkyFocus`): writes `AXManualAccessibility` +
+1. **AX enablement** (`AXEnablement`): writes `AXManualAccessibility` +
    `AXEnhancedUserInterface` on the target root so Chromium/Electron
    build their full AX tree.
 2. **Reactive preventer** (`SystemFocusStealPreventer`): watches

@@ -75,7 +75,7 @@ and pulsing on click. Fades when idle. On by default — set
       ElementCache.swift          per-turn element_index → AXUIElement map
       SkyLightBridge.swift        private SkyLight SPIs for trusted event post
       SystemFocusStealPreventer.swift  reactive NSWorkspace observer
-      SkyFocus.swift              AX enablement + BackgroundFocus helper
+      AXEnablement.swift              AX enablement + BackgroundFocus helper
       AXEventTag.swift            AXESynthesizedIgnoreEventSourceID tagging
       VirtualCursor.swift         NSPanel overlay, Bezier motion, click pulse
       Permissions.swift           AX + Screen Recording TCC checks
