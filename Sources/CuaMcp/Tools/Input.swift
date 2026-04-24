@@ -111,7 +111,8 @@ extension Tools {
             // Enrich the error with the element's role + title so the
             // model gets actionable context instead of an opaque AXError.
             let role: String = AXTreeBuilder.attribute(element, "AXRole") ?? "unknown"
-            let title: String = AXTreeBuilder.attribute(element, "AXTitle")
+            let title: String =
+                AXTreeBuilder.attribute(element, "AXTitle")
                 ?? AXTreeBuilder.attribute(element, "AXDescription")
                 ?? AXTreeBuilder.attribute(element, "AXValue")
                 ?? ""

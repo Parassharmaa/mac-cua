@@ -6,11 +6,13 @@ let args = CommandLine.arguments.dropFirst()
 // When launched from Finder, Info.plist's LSEnvironment sets this to 1. An
 // MCP client spawn doesn't run through LaunchServices so this is unset —
 // we fall through to the stdio server path. --ui forces UI mode from CLI.
-let wantsUI = ProcessInfo.processInfo.environment["CUA_MCP_UI_MODE"] == "1"
+let wantsUI =
+    ProcessInfo.processInfo.environment["CUA_MCP_UI_MODE"] == "1"
     || args.first == "--ui"
 
 func writeJSON(_ value: Any) {
-    let data = try! JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys])
+    let data = try! JSONSerialization.data(
+        withJSONObject: value, options: [.prettyPrinted, .sortedKeys])
     FileHandle.standardOutput.write(data)
     FileHandle.standardOutput.write(Data([0x0A]))
 }

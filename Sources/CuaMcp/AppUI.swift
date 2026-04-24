@@ -36,7 +36,8 @@ final class AppUI: NSObject, NSApplicationDelegate {
         // isn't interrupted. Menu-bar icon still appears normally.
         NSApp.hide(nil)
         if let prev = Self.previousFrontmost,
-           prev.processIdentifier != ProcessInfo.processInfo.processIdentifier {
+            prev.processIdentifier != ProcessInfo.processInfo.processIdentifier
+        {
             prev.activate(options: [.activateIgnoringOtherApps])
         }
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -45,7 +46,8 @@ final class AppUI: NSObject, NSApplicationDelegate {
             // automatically respects menubar tint and dark/light mode. The
             // per-permission status tints a small overlay circle when
             // something is wrong.
-            button.image = NSImage(systemSymbolName: "cursorarrow.click.2", accessibilityDescription: "cua-mcp")
+            button.image = NSImage(
+                systemSymbolName: "cursorarrow.click.2", accessibilityDescription: "cua-mcp")
             button.toolTip = "mac-cua MCP server"
             button.action = #selector(togglePopover(_:))
             button.target = self
@@ -84,13 +86,18 @@ final class AppUI: NSObject, NSApplicationDelegate {
         guard let button = statusItem.button else { return }
         switch (ax, sr) {
         case (true, true):
-            button.image = NSImage(systemSymbolName: "cursorarrow.click.2", accessibilityDescription: "Ready")
+            button.image = NSImage(
+                systemSymbolName: "cursorarrow.click.2", accessibilityDescription: "Ready")
             button.contentTintColor = nil
         case (false, false):
-            button.image = NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: "Needs both permissions")
+            button.image = NSImage(
+                systemSymbolName: "exclamationmark.triangle.fill",
+                accessibilityDescription: "Needs both permissions")
             button.contentTintColor = .systemRed
         default:
-            button.image = NSImage(systemSymbolName: "cursorarrow.click.2.fill", accessibilityDescription: "Needs one permission")
+            button.image = NSImage(
+                systemSymbolName: "cursorarrow.click.2.fill",
+                accessibilityDescription: "Needs one permission")
             button.contentTintColor = .systemYellow
         }
     }
@@ -151,7 +158,10 @@ final class PermissionsView: NSView {
             if !Permissions.axTrusted(prompt: true) {
                 // prompt:true both prompts and opens System Settings the
                 // first time the app asks; subsequent calls are no-ops.
-                openSystemSettings(path: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+                openSystemSettings(
+                    path:
+                        "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+                )
             }
             self?.refresh()
         }
@@ -160,7 +170,10 @@ final class PermissionsView: NSView {
         srRow.frame = NSRect(x: 16, y: 154, width: 348, height: 78)
         srRow.onGrant = { [weak self] in
             if !Permissions.requestScreenRecording() {
-                openSystemSettings(path: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+                openSystemSettings(
+                    path:
+                        "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
+                )
             }
             self?.refresh()
         }
@@ -200,7 +213,10 @@ final class PermissionsView: NSView {
         addSubview(quitButton)
 
         // Hint line beneath the buttons.
-        let hint = NSTextField(labelWithString: "Cursor demo sweeps the agent cursor across the screen so you can see the motion + click pulse.")
+        let hint = NSTextField(
+            labelWithString:
+                "Cursor demo sweeps the agent cursor across the screen so you can see the motion + click pulse."
+        )
         hint.font = NSFont.systemFont(ofSize: 10)
         hint.textColor = .tertiaryLabelColor
         hint.maximumNumberOfLines = 2
@@ -247,23 +263,25 @@ final class PermissionsView: NSView {
         } else if !ax && !sr {
             statusLabel.stringValue = "Grant both permissions to enable all tools."
         } else if !ax {
-            statusLabel.stringValue = "Needs Accessibility — the rest of the tools won't work without it."
+            statusLabel.stringValue =
+                "Needs Accessibility — the rest of the tools won't work without it."
         } else {
-            statusLabel.stringValue = "Needs Screen Recording — screenshots will be blank until granted."
+            statusLabel.stringValue =
+                "Needs Screen Recording — screenshots will be blank until granted."
         }
     }
 
     @objc private func copyConfig() {
         let exe = Bundle.main.executablePath ?? "/usr/local/bin/cua-mcp"
         let config = """
-        {
-          "mcpServers": {
-            "mac-cua": {
-              "command": "\(exe)"
+            {
+              "mcpServers": {
+                "mac-cua": {
+                  "command": "\(exe)"
+                }
+              }
             }
-          }
-        }
-        """
+            """
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(config, forType: .string)
         copyButton.title = "Copied!"

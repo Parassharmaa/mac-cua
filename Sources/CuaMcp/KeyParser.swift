@@ -21,12 +21,14 @@ enum KeyParser {
             flags.insert(flag)
         }
         if let (vk, extraFlag) = virtualKey(forName: last) {
-            return KeyCombination(virtualKey: vk, modifiers: flags.union(extraFlag), fallbackUnicode: nil)
+            return KeyCombination(
+                virtualKey: vk, modifiers: flags.union(extraFlag), fallbackUnicode: nil)
         }
         if last.count == 1 {
             let ch = last
             if let (vk, extraFlag) = virtualKey(forChar: ch) {
-                return KeyCombination(virtualKey: vk, modifiers: flags.union(extraFlag), fallbackUnicode: nil)
+                return KeyCombination(
+                    virtualKey: vk, modifiers: flags.union(extraFlag), fallbackUnicode: nil)
             }
             return KeyCombination(virtualKey: 0, modifiers: flags, fallbackUnicode: ch)
         }
@@ -38,7 +40,8 @@ enum KeyParser {
         case "shift", "shift_l", "shift_r": return .maskShift
         case "ctrl", "control", "control_l", "control_r": return .maskControl
         case "alt", "option", "opt", "alt_l", "alt_r": return .maskAlternate
-        case "cmd", "command", "super", "super_l", "super_r", "meta", "meta_l", "meta_r": return .maskCommand
+        case "cmd", "command", "super", "super_l", "super_r", "meta", "meta_l", "meta_r":
+            return .maskCommand
         case "fn", "function": return .maskSecondaryFn
         default: return nil
         }
@@ -58,8 +61,10 @@ enum KeyParser {
         case "Down", "KP_Down": return (CGKeyCode(kVK_DownArrow), [])
         case "Home", "KP_Home": return (CGKeyCode(kVK_Home), [])
         case "End", "KP_End": return (CGKeyCode(kVK_End), [])
-        case "Page_Up", "PageUp", "KP_Page_Up", "KP_Prior", "Prior": return (CGKeyCode(kVK_PageUp), [])
-        case "Page_Down", "PageDown", "KP_Page_Down", "KP_Next", "Next": return (CGKeyCode(kVK_PageDown), [])
+        case "Page_Up", "PageUp", "KP_Page_Up", "KP_Prior", "Prior":
+            return (CGKeyCode(kVK_PageUp), [])
+        case "Page_Down", "PageDown", "KP_Page_Down", "KP_Next", "Next":
+            return (CGKeyCode(kVK_PageDown), [])
         case "Insert", "KP_Insert": return (CGKeyCode(kVK_Help), [])
         case "F1": return (CGKeyCode(kVK_F1), [])
         case "F2": return (CGKeyCode(kVK_F2), [])
@@ -106,7 +111,8 @@ enum KeyParser {
     private static func virtualKey(forChar char: String) -> (CGKeyCode, CGEventFlags)? {
         guard let scalar = char.unicodeScalars.first else { return nil }
         let lower = Character(String(scalar).lowercased())
-        let needsShift = Character(String(scalar)) != lower && String(scalar).uppercased() == String(scalar)
+        let needsShift =
+            Character(String(scalar)) != lower && String(scalar).uppercased() == String(scalar)
         let flag: CGEventFlags = needsShift ? .maskShift : []
         switch lower {
         case "a": return (CGKeyCode(kVK_ANSI_A), flag)

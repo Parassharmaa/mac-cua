@@ -36,7 +36,8 @@ final class AXEnablement {
             // the tree.
             let isChromium = isChromiumPid(pid)
             if stableInstalled.contains(pid) && !isChromium { return }
-            AXUIElementSetAttributeValue(axApp, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue)
+            AXUIElementSetAttributeValue(
+                axApp, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue)
             AXUIElementSetAttributeValue(axApp, "AXManualAccessibility" as CFString, kCFBooleanTrue)
             if !isChromium { stableInstalled.insert(pid) }
         }

@@ -19,26 +19,26 @@ enum EvalRunner {
         var results: [(label: String, status: Status, dt: TimeInterval, note: String)] = []
 
         let cases: [(String, () -> (Status, String))] = [
-            ("bg_calc_click",             case_bg_calc_click),
-            ("bg_textedit_type_ascii",    case_bg_textedit_type_ascii),
-            ("bg_textedit_type_cjk",      case_bg_textedit_type_cjk),
-            ("cursor_unmoved_click",      case_cursor_unmoved_click),
-            ("cursor_unmoved_type",       case_cursor_unmoved_type),
-            ("frontmost_multi_tool",      case_frontmost_multi_tool),
-            ("zorder_preserved",          case_zorder_preserved),
-            ("minimized_clear_error",     case_minimized_clear_error),
-            ("chrome_axpress_bg",         case_chrome_axpress_bg),
-            ("chrome_pixel_click_bg",     case_chrome_pixel_click_bg),
-            ("chrome_omnibox_type_bg",    case_chrome_omnibox_type_bg),
-            ("chrome_scroll_bg",          case_chrome_scroll_bg),
-            ("slack_click_bg",            case_slack_click_bg),
-            ("vscode_click_bg",           case_vscode_click_bg),
-            ("chrome_tree_fresh",         case_chrome_tree_fresh),
-            ("chrome_closed_loop_click",  case_chrome_closed_loop_click),
-            ("bg_calc_double_click",      case_bg_calc_double_click),
-            ("bg_drag_no_steal",          case_bg_drag_no_steal),
-            ("bg_key_combo_cmd_a",        case_bg_key_combo_cmd_a),
-            ("perf_100x_click",           case_perf_100x_click),
+            ("bg_calc_click", case_bg_calc_click),
+            ("bg_textedit_type_ascii", case_bg_textedit_type_ascii),
+            ("bg_textedit_type_cjk", case_bg_textedit_type_cjk),
+            ("cursor_unmoved_click", case_cursor_unmoved_click),
+            ("cursor_unmoved_type", case_cursor_unmoved_type),
+            ("frontmost_multi_tool", case_frontmost_multi_tool),
+            ("zorder_preserved", case_zorder_preserved),
+            ("minimized_clear_error", case_minimized_clear_error),
+            ("chrome_axpress_bg", case_chrome_axpress_bg),
+            ("chrome_pixel_click_bg", case_chrome_pixel_click_bg),
+            ("chrome_omnibox_type_bg", case_chrome_omnibox_type_bg),
+            ("chrome_scroll_bg", case_chrome_scroll_bg),
+            ("slack_click_bg", case_slack_click_bg),
+            ("vscode_click_bg", case_vscode_click_bg),
+            ("chrome_tree_fresh", case_chrome_tree_fresh),
+            ("chrome_closed_loop_click", case_chrome_closed_loop_click),
+            ("bg_calc_double_click", case_bg_calc_double_click),
+            ("bg_drag_no_steal", case_bg_drag_no_steal),
+            ("bg_key_combo_cmd_a", case_bg_key_combo_cmd_a),
+            ("perf_100x_click", case_perf_100x_click),
         ]
         for (label, fn) in cases {
             let t0 = Date()
@@ -57,14 +57,17 @@ enum EvalRunner {
     // MARK: - Output
 
     private static func printResults(_ rows: [(String, Status, TimeInterval, String)]) {
-        let green = "\u{001b}[32m", red = "\u{001b}[31m", grey = "\u{001b}[90m", reset = "\u{001b}[0m"
+        let green = "\u{001b}[32m", red = "\u{001b}[31m", grey = "\u{001b}[90m",
+            reset = "\u{001b}[0m"
         print("")
         print("\(pad("case", 32)) \(pad("status", 8)) \(pad("dur", 7)) note")
         print(String(repeating: "─", count: 100))
         for (label, status, dt, note) in rows {
             let color = status == .pass ? green : status == .fail ? red : grey
             let s = String(format: "%.1fs", dt)
-            print("\(pad(label, 32)) \(color)\(pad(status.rawValue, 8))\(reset) \(pad(s, 5)).  \(note)")
+            print(
+                "\(pad(label, 32)) \(color)\(pad(status.rawValue, 8))\(reset) \(pad(s, 5)).  \(note)"
+            )
         }
         let p = rows.filter { $0.1 == .pass }.count
         let f = rows.filter { $0.1 == .fail }.count
@@ -78,8 +81,10 @@ enum EvalRunner {
             let mean = ds.reduce(0, +) / Double(ds.count)
             let median = ds[ds.count / 2]
             let p90 = ds[min(ds.count - 1, Int(Double(ds.count) * 0.9))]
-            print(String(format: "  pass-case timing: mean=%.2fs median=%.2fs p90=%.2fs max=%.2fs",
-                         mean, median, p90, ds.last!))
+            print(
+                String(
+                    format: "  pass-case timing: mean=%.2fs median=%.2fs p90=%.2fs max=%.2fs",
+                    mean, median, p90, ds.last!))
         }
     }
 
@@ -110,7 +115,9 @@ enum EvalRunner {
     /// - .fail if target was not frontmost before and became frontmost after.
     /// - .skip if target was frontmost before (contract vacuous — we can't
     ///   measure a steal the action didn't cause).
-    private static func measureNoSteal(_ targetBundle: String, _ action: () -> Void) -> (Status, String) {
+    private static func measureNoSteal(_ targetBundle: String, _ action: () -> Void) -> (
+        Status, String
+    ) {
         let before = frontmost()
         action()
         Thread.sleep(forTimeInterval: 0.3)
@@ -139,7 +146,9 @@ enum EvalRunner {
     /// file argument. Passing a pre-created temp file ensures the app opens
     /// with a real document window containing an editable text area.
     @discardableResult
-    private static func ensureRunning(_ bundle: String, opening fileURL: URL? = nil, timeout: TimeInterval = 4.0) -> Bool {
+    private static func ensureRunning(
+        _ bundle: String, opening fileURL: URL? = nil, timeout: TimeInterval = 4.0
+    ) -> Bool {
         let ws = NSWorkspace.shared
         guard let url = ws.urlForApplication(withBundleIdentifier: bundle) else { return false }
         let cfg = NSWorkspace.OpenConfiguration()
@@ -195,7 +204,8 @@ enum EvalRunner {
         for line in text.split(separator: "\n") {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             guard let first = trimmed.split(separator: " ").first,
-                  let idx = Int(first) else { continue }
+                let idx = Int(first)
+            else { continue }
             let remainder = String(trimmed.dropFirst(first.count)).lowercased()
             if match(remainder) { ids.append(idx) }
         }
@@ -203,13 +213,15 @@ enum EvalRunner {
     }
 
     private static func readValue(of focusedBundle: String, role: String) -> String? {
-        guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: focusedBundle).first
+        guard
+            let app = NSRunningApplication.runningApplications(withBundleIdentifier: focusedBundle)
+                .first
         else { return nil }
         let axApp = AXUIElementCreateApplication(app.processIdentifier)
         // Walk focused window → text area / text field.
         if let window: AXUIElement = AXTreeBuilder.attribute(axApp, "AXFocusedWindow"),
-           let text = findFirst(in: window, matching: role),
-           let value: String = AXTreeBuilder.attribute(text, "AXValue")
+            let text = findFirst(in: window, matching: role),
+            let value: String = AXTreeBuilder.attribute(text, "AXValue")
         {
             return value
         }
@@ -269,8 +281,9 @@ enum EvalRunner {
         guard let oneIdx else { return (.skip, "no '1' button in tree") }
 
         let before = frontmost()
-        do { try Tools.clickElement(index: oneIdx) }
-        catch { return (.fail, "click(idx=\(oneIdx)): \(error)") }
+        do { try Tools.clickElement(index: oneIdx) } catch {
+            return (.fail, "click(idx=\(oneIdx)): \(error)")
+        }
         // Allow the renderer to catch up — give Calculator 300ms beyond the
         // AXPress dispatch for its display label to re-render.
         Thread.sleep(forTimeInterval: 0.6)
@@ -283,15 +296,21 @@ enum EvalRunner {
         let clean = display.replacingOccurrences(of: "\u{200E}", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let ok = clean == "1" && !stole
-        return (ok ? .pass : .fail,
-                "pre='\(pre)' idx=\(oneIdx) display='\(display)' (clean='\(clean)') before=\(before) after=\(after) stole=\(stole)")
+        return (
+            ok ? .pass : .fail,
+            "pre='\(pre)' idx=\(oneIdx) display='\(display)' (clean='\(clean)') before=\(before) after=\(after) stole=\(stole)"
+        )
     }
 
     private static func readCalcDisplay() -> String? {
-        guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: calcBundle).first
+        guard
+            let app = NSRunningApplication.runningApplications(withBundleIdentifier: calcBundle)
+                .first
         else { return nil }
         let axApp = AXUIElementCreateApplication(app.processIdentifier)
-        guard let window: AXUIElement = AXTreeBuilder.attribute(axApp, "AXFocusedWindow") else { return nil }
+        guard let window: AXUIElement = AXTreeBuilder.attribute(axApp, "AXFocusedWindow") else {
+            return nil
+        }
         // Calculator's display is typically an AXScrollArea containing a
         // text element, or an AXStaticText with the digit value. Walk the
         // subtree and collect any AXStaticText/AXValue strings that look
@@ -300,7 +319,8 @@ enum EvalRunner {
         var candidates: [String] = []
         var visited = 0
         while let cur = queue.first, visited < 200 {
-            queue.removeFirst(); visited += 1
+            queue.removeFirst()
+            visited += 1
             let role: String? = AXTreeBuilder.attribute(cur, "AXRole")
             let value: String? = AXTreeBuilder.attribute(cur, "AXValue")
             let desc: String? = AXTreeBuilder.attribute(cur, "AXDescription")
@@ -321,14 +341,17 @@ enum EvalRunner {
         else { return (.skip, "TextEdit unavailable") }
         _ = axTreeText(textEditBundle)
         let before = frontmost()
-        do { try Tools.typeText("hello_bg", app: textEditBundle) }
-        catch { return (.fail, "type: \(error)") }
+        do { try Tools.typeText("hello_bg", app: textEditBundle) } catch {
+            return (.fail, "type: \(error)")
+        }
         Thread.sleep(forTimeInterval: 0.4)
         let val = readValue(of: textEditBundle, role: "AXTextArea") ?? ""
         let after = frontmost()
         let stole = before != textEditBundle && after == textEditBundle
         let ok = val.contains("hello_bg") && !stole
-        return (ok ? .pass : .fail, "val=\(quoted(val)) before=\(before) after=\(after) stole=\(stole)")
+        return (
+            ok ? .pass : .fail, "val=\(quoted(val)) before=\(before) after=\(after) stole=\(stole)"
+        )
     }
 
     private static func case_bg_textedit_type_cjk() -> (Status, String) {
@@ -336,14 +359,17 @@ enum EvalRunner {
         else { return (.skip, "TextEdit unavailable") }
         _ = axTreeText(textEditBundle)
         let before = frontmost()
-        do { try Tools.typeText("日本語", app: textEditBundle) }
-        catch { return (.fail, "type: \(error)") }
+        do { try Tools.typeText("日本語", app: textEditBundle) } catch {
+            return (.fail, "type: \(error)")
+        }
         Thread.sleep(forTimeInterval: 0.5)
         let val = readValue(of: textEditBundle, role: "AXTextArea") ?? ""
         let after = frontmost()
         let stole = before != textEditBundle && after == textEditBundle
         let ok = val.contains("日本語") && !stole
-        return (ok ? .pass : .fail, "val=\(quoted(val)) before=\(before) after=\(after) stole=\(stole)")
+        return (
+            ok ? .pass : .fail, "val=\(quoted(val)) before=\(before) after=\(after) stole=\(stole)"
+        )
     }
 
     private static func case_cursor_unmoved_click() -> (Status, String) {
@@ -385,18 +411,30 @@ enum EvalRunner {
 
     private static func case_frontmost_multi_tool() -> (Status, String) {
         guard ensureRunning(calcBundle),
-              let f = makeTempTextFile(), ensureRunning(textEditBundle, opening: f)
+            let f = makeTempTextFile(), ensureRunning(textEditBundle, opening: f)
         else { return (.skip, "apps unavailable") }
         var stolen: [(String, String, String)] = []  // (op, before, after)
         let ops: [(label: String, target: String, run: () throws -> Void)] = [
-            ("get_app_state(calc)", calcBundle, { _ = try Tools.getAppState(app: Self.calcBundle) }),
-            ("press_key(Escape)",    calcBundle, { try Tools.pressKey("Escape", app: Self.calcBundle) }),
-            ("type_text",            textEditBundle, { try Tools.typeText("y", app: Self.textEditBundle) }),
-            ("scroll",               textEditBundle, { try Tools.scroll(direction: "down", pages: 1, index: nil, app: Self.textEditBundle) }),
+            (
+                "get_app_state(calc)", calcBundle,
+                { _ = try Tools.getAppState(app: Self.calcBundle) }
+            ),
+            (
+                "press_key(Escape)", calcBundle,
+                { try Tools.pressKey("Escape", app: Self.calcBundle) }
+            ),
+            ("type_text", textEditBundle, { try Tools.typeText("y", app: Self.textEditBundle) }),
+            (
+                "scroll", textEditBundle,
+                {
+                    try Tools.scroll(
+                        direction: "down", pages: 1, index: nil, app: Self.textEditBundle)
+                }
+            ),
         ]
         for op in ops {
             let before = frontmost()
-            do { try op.run() } catch { /* non-fatal for this invariant */ }
+            do { try op.run() } catch { /* non-fatal for this invariant */  }
             Thread.sleep(forTimeInterval: 0.25)
             let after = frontmost()
             // Contract: a tool operation on `target` must not cause
@@ -422,7 +460,9 @@ enum EvalRunner {
 
     private static func case_minimized_clear_error() -> (Status, String) {
         guard ensureRunning(calcBundle) else { return (.skip, "Calculator unavailable") }
-        guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: calcBundle).first
+        guard
+            let app = NSRunningApplication.runningApplications(withBundleIdentifier: calcBundle)
+                .first
         else { return (.skip, "calc app not resolvable") }
         let axApp = AXUIElementCreateApplication(app.processIdentifier)
         guard let window: AXUIElement = AXTreeBuilder.attribute(axApp, "AXFocusedWindow") else {
@@ -450,7 +490,7 @@ enum EvalRunner {
         let candidates = parseIndices(text) { $0.contains("button") || $0.contains("link") }
         guard let idx = candidates.first else { return (.skip, "no button/link") }
         return measureNoSteal(chromeBundle) {
-            do { try Tools.clickElement(index: idx) } catch { /* recorded below */ }
+            do { try Tools.clickElement(index: idx) } catch { /* recorded below */  }
         }
     }
 
@@ -460,8 +500,9 @@ enum EvalRunner {
         setCursor(CGPoint(x: 500, y: 500))
         let before = cursorPoint()
         let (status, note) = measureNoSteal(chromeBundle) {
-            do { try Tools.clickAt(x: 400, y: 400, button: "left", clickCount: 1, app: chromeBundle) }
-            catch { /* recorded below */ }
+            do {
+                try Tools.clickAt(x: 400, y: 400, button: "left", clickCount: 1, app: chromeBundle)
+            } catch { /* recorded below */  }
         }
         let after = cursorPoint()
         let moved = abs(after.x - before.x) > 3 || abs(after.y - before.y) > 3
@@ -475,7 +516,7 @@ enum EvalRunner {
         let candidates = parseIndices(text) { $0.contains("text field") }
         guard let idx = candidates.first else { return (.skip, "no text field") }
         return measureNoSteal(chromeBundle) {
-            do { try Tools.setValue(index: idx, value: "about:blank") } catch { }
+            do { try Tools.setValue(index: idx, value: "about:blank") } catch {}
         }
     }
 
@@ -483,7 +524,9 @@ enum EvalRunner {
         guard appRunning(chromeBundle) else { return (.skip, "Chrome not running") }
         _ = axTreeText(chromeBundle)
         return measureNoSteal(chromeBundle) {
-            do { try Tools.scroll(direction: "down", pages: 2, index: nil, app: chromeBundle) } catch { }
+            do {
+                try Tools.scroll(direction: "down", pages: 2, index: nil, app: chromeBundle)
+            } catch {}
         }
     }
 
@@ -493,17 +536,19 @@ enum EvalRunner {
         let candidates = parseIndices(text) { $0.contains("button") || $0.contains("link") }
         guard let idx = candidates.first else { return (.skip, "no button/link") }
         return measureNoSteal(slackBundle) {
-            do { try Tools.clickElement(index: idx) } catch { }
+            do { try Tools.clickElement(index: idx) } catch {}
         }
     }
 
     private static func case_vscode_click_bg() -> (Status, String) {
         guard appRunning(vscodeBundle) else { return (.skip, "VSCode not running") }
         guard let text = axTreeText(vscodeBundle) else { return (.fail, "no tree") }
-        let candidates = parseIndices(text) { $0.contains("button") || $0.contains("link") || $0.contains("tab") }
+        let candidates = parseIndices(text) {
+            $0.contains("button") || $0.contains("link") || $0.contains("tab")
+        }
         guard let idx = candidates.first else { return (.skip, "no clickable") }
         return measureNoSteal(vscodeBundle) {
-            do { try Tools.clickElement(index: idx) } catch { }
+            do { try Tools.clickElement(index: idx) } catch {}
         }
     }
 
@@ -518,28 +563,40 @@ enum EvalRunner {
     private static func case_chrome_closed_loop_click() -> (Status, String) {
         guard appRunning(chromeBundle) else { return (.skip, "Chrome not running") }
         // Preflight: verify AppleScript can read Chrome's active tab.
-        guard let _ = chromeRunAS("tell application \"Google Chrome\" to return name of active tab of front window") else {
+        guard
+            let _ = chromeRunAS(
+                "tell application \"Google Chrome\" to return name of active tab of front window")
+        else {
             return (.skip, "Chrome AppleScript scripting blocked")
         }
         // Navigate to a button page.
-        let html = "data:text/html,<html><body style='margin:0'>"
-                 + "<button style='position:fixed;top:100px;left:100px;"
-                 + "width:300px;height:200px;font-size:40px'"
-                 + " onclick='document.title=\"HIT_\"+Date.now()'>TAP</button></body></html>"
-        _ = chromeRunAS("tell application \"Google Chrome\" to set URL of active tab of front window to \"\(html)\"")
+        let html =
+            "data:text/html,<html><body style='margin:0'>"
+            + "<button style='position:fixed;top:100px;left:100px;"
+            + "width:300px;height:200px;font-size:40px'"
+            + " onclick='document.title=\"HIT_\"+Date.now()'>TAP</button></body></html>"
+        _ = chromeRunAS(
+            "tell application \"Google Chrome\" to set URL of active tab of front window to \"\(html)\""
+        )
         Thread.sleep(forTimeInterval: 1.0)
         // Preflight: try JS exec. If it fails, the user hasn't enabled it.
-        let idle = chromeRunAS("tell application \"Google Chrome\" to execute front window's active tab javascript \"document.title='IDLE'; document.title\"")
-        if idle == nil { return (.skip, "Chrome JS-from-AppleEvents disabled (enable in View → Developer)") }
+        let idle = chromeRunAS(
+            "tell application \"Google Chrome\" to execute front window's active tab javascript \"document.title='IDLE'; document.title\""
+        )
+        if idle == nil {
+            return (.skip, "Chrome JS-from-AppleEvents disabled (enable in View → Developer)")
+        }
         Thread.sleep(forTimeInterval: 0.3)
 
         let preFront = frontmost()
         // Resolve Chrome window frame via AX.
-        guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: chromeBundle).first
+        guard
+            let app = NSRunningApplication.runningApplications(withBundleIdentifier: chromeBundle)
+                .first
         else { return (.skip, "no Chrome pid") }
         let axApp = AXUIElementCreateApplication(app.processIdentifier)
         guard let window: AXUIElement = AXTreeBuilder.attribute(axApp, "AXFocusedWindow"),
-              let pos = AXTreeBuilder.pointAttribute(window, "AXPosition")
+            let pos = AXTreeBuilder.pointAttribute(window, "AXPosition")
         else { return (.skip, "no Chrome window geom") }
         // Button center in screen points: window top-left + (~250, ~250)
         // accounting for browser chrome height (~80pt).
@@ -551,7 +608,7 @@ enum EvalRunner {
         // window-local (0,0) = window top-left. So pass the LOCAL offsets.
         do {
             try Tools.clickAt(
-                x: (clickX - pos.x) * 2,   // Retina backing scale
+                x: (clickX - pos.x) * 2,  // Retina backing scale
                 y: (clickY - pos.y) * 2,
                 button: "left", clickCount: 1, app: chromeBundle)
         } catch {
@@ -559,11 +616,17 @@ enum EvalRunner {
         }
         Thread.sleep(forTimeInterval: 0.6)
 
-        let title = chromeRunAS("tell application \"Google Chrome\" to execute front window's active tab javascript \"document.title\"") ?? ""
+        let title =
+            chromeRunAS(
+                "tell application \"Google Chrome\" to execute front window's active tab javascript \"document.title\""
+            ) ?? ""
         let postFront = frontmost()
         let stole = preFront != chromeBundle && postFront == chromeBundle
         let ok = title.contains("HIT_") && !stole
-        return (ok ? .pass : .fail, "title=\(quoted(title)) stole=\(stole) click=(\(Int(clickX)),\(Int(clickY)))")
+        return (
+            ok ? .pass : .fail,
+            "title=\(quoted(title)) stole=\(stole) click=(\(Int(clickX)),\(Int(clickY)))"
+        )
     }
 
     /// Run an AppleScript snippet in-process via `NSAppleScript`. No
@@ -590,7 +653,7 @@ enum EvalRunner {
                 try Tools.clickElement(index: idx)
                 Thread.sleep(forTimeInterval: 0.1)
                 try Tools.clickElement(index: idx)
-            } catch { /* recorded via noSteal */ }
+            } catch { /* recorded via noSteal */  }
         }
     }
 
@@ -604,9 +667,10 @@ enum EvalRunner {
         return measureNoSteal(calcBundle) {
             do {
                 try Tools.drag(fromX: 100, fromY: 100, toX: 150, toY: 150, app: calcBundle)
-            } catch { }
+            } catch {}
             let cursorAfter = cursorPoint()
-            let moved = abs(cursorAfter.x - cursorBefore.x) > 3 || abs(cursorAfter.y - cursorBefore.y) > 3
+            let moved =
+                abs(cursorAfter.x - cursorBefore.x) > 3 || abs(cursorAfter.y - cursorBefore.y) > 3
             if moved {
                 // Treat cursor warp as a failure; attach to frontmost
                 // result via the shared note string.
@@ -625,7 +689,7 @@ enum EvalRunner {
         guard let f = makeTempTextFile(), ensureRunning(textEditBundle, opening: f)
         else { return (.skip, "TextEdit unavailable") }
         return measureNoSteal(textEditBundle) {
-            do { try Tools.pressKey("cmd+a", app: textEditBundle) } catch { }
+            do { try Tools.pressKey("cmd+a", app: textEditBundle) } catch {}
         }
     }
 
@@ -645,8 +709,7 @@ enum EvalRunner {
         let t0 = Date()
         var failures = 0
         for i in 0..<100 {
-            do { try Tools.clickElement(index: idx) }
-            catch { failures += 1 }
+            do { try Tools.clickElement(index: idx) } catch { failures += 1 }
             if i % 10 == 9 {
                 // Sparse steal-check — checking every iteration slows the
                 // bench with NSWorkspace calls.
@@ -661,9 +724,12 @@ enum EvalRunner {
         let after = frontmost()
         let stole = before != calcBundle && after == calcBundle
         let ok = failures == 0 && !stole && stoleAt == -1
-        return (ok ? .pass : .fail,
-                String(format: "100×click in %.2fs (%.1fms/call) failures=%d stole=%@ stoleAt=%d",
-                       dt, perCall * 1000, failures, stole ? "true" : "false", stoleAt))
+        return (
+            ok ? .pass : .fail,
+            String(
+                format: "100×click in %.2fs (%.1fms/call) failures=%d stole=%@ stoleAt=%d",
+                dt, perCall * 1000, failures, stole ? "true" : "false", stoleAt)
+        )
     }
 
     private static func case_chrome_tree_fresh() -> (Status, String) {
@@ -678,7 +744,9 @@ enum EvalRunner {
         // Steal check only if before != chrome.
         let stole = (before != chromeBundle) && (after == chromeBundle)
         let ok = n2 >= n1 / 2 && n2 > 5 && !stole
-        return (ok ? .pass : .fail, "n1=\(n1) n2=\(n2) before=\(before) after=\(after) stole=\(stole)")
+        return (
+            ok ? .pass : .fail, "n1=\(n1) n2=\(n2) before=\(before) after=\(after) stole=\(stole)"
+        )
     }
 
     // MARK: - cleanup + misc

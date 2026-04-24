@@ -35,7 +35,9 @@ enum DebugCommands {
             let up = AXUIElementPerformAction(el, "AXScrollUpByPage" as CFString)
             Thread.sleep(forTimeInterval: 0.1)
             let afterUp = readVbar(el)
-            stderr.write("  [\(idx)] before=\(before) down=\(down.rawValue)→\(afterDown) up=\(up.rawValue)→\(afterUp)\n")
+            stderr.write(
+                "  [\(idx)] before=\(before) down=\(down.rawValue)→\(afterDown) up=\(up.rawValue)→\(afterUp)\n"
+            )
         }
         stderr.write("\n=== AX trusted? \(Permissions.axTrusted()) ===\n")
     }

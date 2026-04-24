@@ -42,7 +42,9 @@ final class VirtualCursor {
         p.hasShadow = false
         p.isOpaque = false
         p.ignoresMouseEvents = true
-        p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle, .stationary]
+        p.collectionBehavior = [
+            .canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle, .stationary,
+        ]
         let container = CursorContentView(frame: contentRect)
         container.wantsLayer = true
         p.contentView = container
@@ -56,19 +58,28 @@ final class VirtualCursor {
     /// perpendicular from the midpoint. For hops < 40pt the motion is
     /// linear with ease-in-out to avoid jittery micro-arcs. The arrow
     /// heading rotates to follow the motion direction.
-    func animate(to target: CGPoint, duration: TimeInterval = 0.3, completion: (() -> Void)? = nil) {
-        guard Self.enabled else { completion?(); return }
+    func animate(to target: CGPoint, duration: TimeInterval = 0.3, completion: (() -> Void)? = nil)
+    {
+        guard Self.enabled else {
+            completion?()
+            return
+        }
         ensureInstalled()
-        guard let panel, let view = contentView else { completion?(); return }
+        guard let panel, let view = contentView else {
+            completion?()
+            return
+        }
         let screenDest = flipToScreen(target)
-        let destOrigin = NSPoint(x: screenDest.x - cursorSize.width / 2,
-                                 y: screenDest.y - cursorSize.height / 2)
+        let destOrigin = NSPoint(
+            x: screenDest.x - cursorSize.width / 2,
+            y: screenDest.y - cursorSize.height / 2)
 
         let startOrigin: NSPoint
         if !panel.isVisible {
             let currentMouse = NSEvent.mouseLocation
-            startOrigin = NSPoint(x: currentMouse.x - cursorSize.width / 2,
-                                  y: currentMouse.y - cursorSize.height / 2)
+            startOrigin = NSPoint(
+                x: currentMouse.x - cursorSize.width / 2,
+                y: currentMouse.y - cursorSize.height / 2)
             panel.setFrameOrigin(startOrigin)
             panel.orderFrontRegardless()
             view.beginFadeIn()
@@ -87,15 +98,17 @@ final class VirtualCursor {
         view.setHeading(motionAngle)
 
         if dist < 40 {
-            NSAnimationContext.runAnimationGroup({ ctx in
-                ctx.duration = duration
-                ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                ctx.allowsImplicitAnimation = true
-                panel.animator().setFrameOrigin(destOrigin)
-            }, completionHandler: {
-                view.setMoving(false)
-                completion?()
-            })
+            NSAnimationContext.runAnimationGroup(
+                { ctx in
+                    ctx.duration = duration
+                    ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                    ctx.allowsImplicitAnimation = true
+                    panel.animator().setFrameOrigin(destOrigin)
+                },
+                completionHandler: {
+                    view.setMoving(false)
+                    completion?()
+                })
             return
         }
 
@@ -217,14 +230,17 @@ final class CursorContentView: NSView {
         arrowContainer.frame = bounds
         layer?.addSublayer(arrowContainer)
 
-        let path = Self.arrowPath(scale: bounds.width * 0.70, center: CGPoint(x: bounds.midX, y: bounds.midY))
+        let path = Self.arrowPath(
+            scale: bounds.width * 0.70, center: CGPoint(x: bounds.midX, y: bounds.midY))
         arrowLayer.path = path
         // Iridescent violet-blue — distinct from any OS cursor color so users
         // can always tell which pointer is the agent's. Matches Claude brand
         // orange-gradient undertones but stays in the indigo family for
         // high contrast on most app backgrounds.
-        arrowLayer.fillColor = NSColor(calibratedRed: 0.45, green: 0.36, blue: 0.95, alpha: 1.0).cgColor
-        arrowLayer.shadowColor = NSColor(calibratedRed: 0.45, green: 0.36, blue: 0.95, alpha: 1).cgColor
+        arrowLayer.fillColor =
+            NSColor(calibratedRed: 0.45, green: 0.36, blue: 0.95, alpha: 1.0).cgColor
+        arrowLayer.shadowColor =
+            NSColor(calibratedRed: 0.45, green: 0.36, blue: 0.95, alpha: 1).cgColor
         arrowLayer.shadowRadius = 6
         arrowLayer.shadowOpacity = 0.75
         arrowLayer.shadowOffset = .zero
@@ -254,7 +270,8 @@ final class CursorContentView: NSView {
         super.layout()
         bloomLayer.frame = bounds
         arrowContainer.frame = bounds
-        let path = Self.arrowPath(scale: bounds.width * 0.70, center: CGPoint(x: bounds.midX, y: bounds.midY))
+        let path = Self.arrowPath(
+            scale: bounds.width * 0.70, center: CGPoint(x: bounds.midX, y: bounds.midY))
         arrowLayer.path = path
         strokeLayer.path = path
         arrowLayer.frame = bounds
@@ -360,25 +377,30 @@ final class CursorContentView: NSView {
         let h = Int(size.height * scale)
         guard w > 0, h > 0 else { return nil }
         let cs = CGColorSpaceCreateDeviceRGB()
-        guard let ctx = CGContext(data: nil, width: w, height: h,
-                                    bitsPerComponent: 8, bytesPerRow: 0,
-                                    space: cs,
-                                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        guard
+            let ctx = CGContext(
+                data: nil, width: w, height: h,
+                bitsPerComponent: 8, bytesPerRow: 0,
+                space: cs,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
         else { return nil }
         ctx.scaleBy(x: scale, y: scale)
         let center = CGPoint(x: size.width / 2, y: size.height / 2)
         let radius = min(size.width, size.height) / 2
-        let colors = [
-            CGColor(red: 0.55, green: 0.45, blue: 0.98, alpha: 0.50),
-            CGColor(red: 0.45, green: 0.36, blue: 0.95, alpha: 0.18),
-            CGColor(red: 0.35, green: 0.26, blue: 0.85, alpha: 0.0),
-        ] as CFArray
-        let gradient = CGGradient(colorsSpace: cs, colors: colors,
-                                    locations: [0.0, 0.55, 1.0])!
-        ctx.drawRadialGradient(gradient,
-                                startCenter: center, startRadius: 0,
-                                endCenter: center, endRadius: radius,
-                                options: [])
+        let colors =
+            [
+                CGColor(red: 0.55, green: 0.45, blue: 0.98, alpha: 0.50),
+                CGColor(red: 0.45, green: 0.36, blue: 0.95, alpha: 0.18),
+                CGColor(red: 0.35, green: 0.26, blue: 0.85, alpha: 0.0),
+            ] as CFArray
+        let gradient = CGGradient(
+            colorsSpace: cs, colors: colors,
+            locations: [0.0, 0.55, 1.0])!
+        ctx.drawRadialGradient(
+            gradient,
+            startCenter: center, startRadius: 0,
+            endCenter: center, endRadius: radius,
+            options: [])
         return ctx.makeImage()
     }
 }

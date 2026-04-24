@@ -38,7 +38,8 @@ enum AXEventTag {
     }
 
     private static let handle: UnsafeMutableRawPointer? = {
-        let path = "/System/Library/PrivateFrameworks/AccessibilitySupport.framework/AccessibilitySupport"
+        let path =
+            "/System/Library/PrivateFrameworks/AccessibilitySupport.framework/AccessibilitySupport"
         return dlopen(path, RTLD_LAZY)
     }()
 

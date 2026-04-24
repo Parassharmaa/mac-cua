@@ -26,9 +26,10 @@ enum SkyLightBridge {
     private typealias PostToPidFn = @convention(c) (pid_t, CGEvent) -> Void
     private typealias SetAuthMessageFn = @convention(c) (CGEvent, AnyObject) -> Void
     private typealias SetWindowLocationFn = @convention(c) (CGEvent, CGPoint) -> Void
-    private typealias FactoryMsgSendFn = @convention(c) (
-        AnyObject, Selector, UnsafeMutableRawPointer, Int32, UInt32
-    ) -> AnyObject?
+    private typealias FactoryMsgSendFn =
+        @convention(c) (
+            AnyObject, Selector, UnsafeMutableRawPointer, Int32, UInt32
+        ) -> AnyObject?
 
     private struct Resolved {
         let postToPid: PostToPidFn
@@ -64,7 +65,8 @@ enum SkyLightBridge {
 
     private static let setWindowLocationFn: SetWindowLocationFn? = {
         _ = dlopen("/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight", RTLD_LAZY)
-        guard let p = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGEventSetWindowLocation") else {
+        guard let p = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGEventSetWindowLocation")
+        else {
             return nil
         }
         return unsafeBitCast(p, to: SetWindowLocationFn.self)
@@ -90,7 +92,9 @@ enum SkyLightBridge {
     static func postToPid(_ pid: pid_t, event: CGEvent, attachAuthMessage: Bool = false) -> Bool {
         guard let r = resolved else { return false }
         if attachAuthMessage, let record = extractEventRecord(from: event) {
-            if let msg = r.msgSendFactory(r.messageClass as AnyObject, r.factorySelector, record, pid, 0) {
+            if let msg = r.msgSendFactory(
+                r.messageClass as AnyObject, r.factorySelector, record, pid, 0)
+            {
                 r.setAuthMessage(event, msg)
             }
         }
@@ -115,7 +119,8 @@ enum SkyLightBridge {
     private static func extractEventRecord(from event: CGEvent) -> UnsafeMutableRawPointer? {
         let base = Unmanaged.passUnretained(event).toOpaque()
         for offset in [24, 32, 16] {
-            let slot = base.advanced(by: offset).assumingMemoryBound(to: UnsafeMutableRawPointer?.self)
+            let slot = base.advanced(by: offset).assumingMemoryBound(
+                to: UnsafeMutableRawPointer?.self)
             if let p = slot.pointee { return p }
         }
         return nil
@@ -136,9 +141,10 @@ enum SkyLightBridge {
     // `isActive=true`, accepts synthetic events as trusted input, but the
     // window stays wherever it was in the z-stack.
 
-    private typealias PostEventRecordToFn = @convention(c) (
-        UnsafeRawPointer, UnsafePointer<UInt8>
-    ) -> Int32
+    private typealias PostEventRecordToFn =
+        @convention(c) (
+            UnsafeRawPointer, UnsafePointer<UInt8>
+        ) -> Int32
     private typealias GetFrontProcessFn = @convention(c) (UnsafeMutableRawPointer) -> Int32
     private typealias GetProcessForPIDFn = @convention(c) (pid_t, UnsafeMutableRawPointer) -> Int32
 
@@ -175,8 +181,8 @@ enum SkyLightBridge {
     @discardableResult
     static func activateWithoutRaise(targetPid: pid_t, targetWid: CGWindowID) -> Bool {
         guard let getFront = getFrontProcessFn,
-              let getPSN = getProcessForPIDFn,
-              let post = postEventRecordToFn
+            let getPSN = getProcessForPIDFn,
+            let post = postEventRecordToFn
         else { return false }
 
         // PSN buffers: 8 bytes each (high UInt32 + low UInt32).
@@ -237,13 +243,14 @@ enum SkyLightBridge {
     /// no on-screen windows).
     static func primaryWindowID(forPid pid: pid_t) -> CGWindowID? {
         let opts: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
-        guard let list = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: Any]] else {
+        guard let list = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: Any]]
+        else {
             return nil
         }
         for info in list {
             guard let ownerPid = info[kCGWindowOwnerPID as String] as? Int32,
-                  ownerPid == pid,
-                  let num = info[kCGWindowNumber as String] as? Int
+                ownerPid == pid,
+                let num = info[kCGWindowNumber as String] as? Int
             else { continue }
             // Skip layer > 0 windows (menubar, dock, floating utility) — the
             // primary window is layer 0.
@@ -253,8 +260,8 @@ enum SkyLightBridge {
         // No on-screen layer-0 window. Try any on-screen window for this pid.
         for info in list {
             guard let ownerPid = info[kCGWindowOwnerPID as String] as? Int32,
-                  ownerPid == pid,
-                  let num = info[kCGWindowNumber as String] as? Int
+                ownerPid == pid,
+                let num = info[kCGWindowNumber as String] as? Int
             else { continue }
             return CGWindowID(num)
         }

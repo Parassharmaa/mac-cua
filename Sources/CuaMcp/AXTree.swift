@@ -33,21 +33,29 @@ final class AXTreeBuilder {
     private var nodeBudget = 1500
     private var budgetExceeded = false
 
-    func build(forAppWithBundleID bundleID: String) throws -> (app: NSRunningApplication, root: AXNode) {
-        guard let app = NSWorkspace.shared.runningApplications.first(where: {
-            $0.bundleIdentifier == bundleID
-        }) else {
+    func build(forAppWithBundleID bundleID: String) throws -> (
+        app: NSRunningApplication, root: AXNode
+    ) {
+        guard
+            let app = NSWorkspace.shared.runningApplications.first(where: {
+                $0.bundleIdentifier == bundleID
+            })
+        else {
             throw AXError2.appNotFound(bundleID)
         }
         return try build(forPID: app.processIdentifier, app: app)
     }
 
-    func build(forPID pid: pid_t, app: NSRunningApplication) throws -> (app: NSRunningApplication, root: AXNode) {
+    func build(forPID pid: pid_t, app: NSRunningApplication) throws -> (
+        app: NSRunningApplication, root: AXNode
+    ) {
         let axApp = AXUIElementCreateApplication(pid)
         var root: AXUIElement = axApp
         if let focusedWindow: AXUIElement = AXTreeBuilder.attribute(axApp, "AXFocusedWindow") {
             root = focusedWindow
-        } else if let windows: [AXUIElement] = AXTreeBuilder.attribute(axApp, "AXWindows"), let first = windows.first {
+        } else if let windows: [AXUIElement] = AXTreeBuilder.attribute(axApp, "AXWindows"),
+            let first = windows.first
+        {
             root = first
         }
         let node = walk(root, depth: 0, maxDepth: 25)
@@ -67,7 +75,9 @@ final class AXTreeBuilder {
         nextIndex += 1
 
         var batched: CFArray?
-        AXUIElementCopyMultipleAttributeValues(element, AXTreeBuilder.batchAttrs as CFArray, AXCopyMultipleAttributeOptions(rawValue: 0), &batched)
+        AXUIElementCopyMultipleAttributeValues(
+            element, AXTreeBuilder.batchAttrs as CFArray,
+            AXCopyMultipleAttributeOptions(rawValue: 0), &batched)
         let arr = (batched as? [Any]) ?? []
         func strAt(_ i: Int) -> String? {
             guard i < arr.count else { return nil }
@@ -108,11 +118,16 @@ final class AXTreeBuilder {
         var actions: [String] = []
         if let arr = actionNames as? [String] {
             let isScrollArea = role == "AXScrollArea"
-            actions = arr
+            actions =
+                arr
                 .filter { name in
-                    if ["AXPress", "AXCancel", "AXConfirm", "AXShowMenu"].contains(name) { return false }
+                    if ["AXPress", "AXCancel", "AXConfirm", "AXShowMenu"].contains(name) {
+                        return false
+                    }
                     // ScrollByPage actions are redundant with the role itself.
-                    if isScrollArea && name.hasPrefix("AXScroll") && name.hasSuffix("ByPage") { return false }
+                    if isScrollArea && name.hasPrefix("AXScroll") && name.hasSuffix("ByPage") {
+                        return false
+                    }
                     return true
                 }
                 .map { cleanActionName($0) }
@@ -232,7 +247,8 @@ enum AXSerializer {
         out += "<app_state>\n"
         out += "App=\(bundleId) (pid \(pid))\n"
         if let title = AXTreeBuilder.attribute(root.element, "AXTitle") as String?,
-           let name = app.localizedName {
+            let name = app.localizedName
+        {
             out += "Window: \"\(title)\", App: \(name).\n"
         } else if let name = app.localizedName {
             out += "App: \(name).\n"
@@ -260,11 +276,11 @@ enum AXSerializer {
     private static func appSpecificInstructions(bundleId: String) -> String? {
         switch bundleId {
         case "com.google.Chrome", "com.google.Chrome.canary",
-             "com.apple.Safari", "com.microsoft.edgemac",
-             "com.brave.Browser", "org.mozilla.firefox":
+            "com.apple.Safari", "com.microsoft.edgemac",
+            "com.brave.Browser", "org.mozilla.firefox":
             return """
-            When navigating to a new website or starting a separate web task, prefer opening a new tab instead of reusing the current tab. Use press_key cmd+t to open a new tab, then type the URL and press Return.
-            """
+                When navigating to a new website or starting a separate web task, prefer opening a new tab instead of reusing the current tab. Use press_key cmd+t to open a new tab, then type the URL and press Return.
+                """
         default:
             return nil
         }
@@ -339,10 +355,16 @@ enum AXSerializer {
 
     private static func attributeModifiers(_ node: AXNode) -> [String] {
         var mods: [String] = []
-        if node.settable, let t = node.valueType { mods.append("settable, \(t)") }
-        else if node.settable { mods.append("settable") }
-        if node.selected == true { mods.append("selected") }
-        else if node.selected == false { mods.append("selectable") }
+        if node.settable, let t = node.valueType {
+            mods.append("settable, \(t)")
+        } else if node.settable {
+            mods.append("settable")
+        }
+        if node.selected == true {
+            mods.append("selected")
+        } else if node.selected == false {
+            mods.append("selectable")
+        }
         if node.focused == true { mods.append("focused") }
         return mods
     }
@@ -362,10 +384,15 @@ enum AXSerializer {
         // Bare label (no prefix) — pick the "best" single name: title wins,
         // else description, else identifier.
         let bareLabel: String?
-        if let title { bareLabel = title }
-        else if let desc { bareLabel = desc }
-        else if let id { bareLabel = id }
-        else { bareLabel = nil }
+        if let title {
+            bareLabel = title
+        } else if let desc {
+            bareLabel = desc
+        } else if let id {
+            bareLabel = id
+        } else {
+            bareLabel = nil
+        }
         if let bareLabel { parts.append(bareLabel) }
 
         // Add Description only if different from the bare label already emitted.
