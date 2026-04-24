@@ -18,6 +18,37 @@ func writeJSON(_ value: Any) {
 }
 
 switch args.first {
+case "--help", "-h", "help":
+    let usage = """
+        cua-mcp — native macOS Computer Use MCP server.
+
+        Usage:
+          cua-mcp                 Run as MCP stdio server (default)
+          cua-mcp --ui            Launch the menu-bar UI
+          cua-mcp --version       Print version
+          cua-mcp eval            Run 20-case in-process eval, human table
+          cua-mcp eval-json       Same eval, line-delimited JSON output
+          cua-mcp cursor-demo     Sweep the agent cursor across the screen
+          cua-mcp tools           Print the JSON schema for all MCP tools
+          cua-mcp permissions     Print AX + Screen Recording grant state
+          cua-mcp probe-state <bundle-id>  Dump the AX tree for an app
+          cua-mcp --help          This message
+
+        Env vars:
+          CUA_HIDE_CURSOR=1       Disable the overlay cursor (default on)
+          CUA_CURSOR_DEBUG=1      Log cursor events to stderr
+          CUA_FOCUS_DEBUG=1       Log focus-suppression activity
+          CUA_SCROLL_DEBUG=1      Log scroll dispatch path
+
+        MCP client registration (Claude Code):
+          claude mcp add --scope user mac-cua -- /abs/path/to/cua-mcp
+
+        First-run: grant Accessibility + Screen Recording in
+        System Settings → Privacy & Security.
+        """
+    print(usage)
+    exit(0)
+
 case "--version", "-v", "version":
     // Mirror the version we advertise over MCP initialize so clients
     // that introspect both sources see the same number.
