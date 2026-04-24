@@ -104,7 +104,13 @@ if wantsUI {
     exit(0)
 }
 
-// Default: run as MCP stdio server.
+// Default: run as MCP stdio server. Log a one-line banner to stderr so
+// a client wiring up the server sees `cua-mcp` is alive even before the
+// first initialize round-trip. Stderr stays out of the JSON-RPC stream
+// on stdout.
+FileHandle.standardError.write(
+    "cua-mcp 0.1.0 — MCP stdio server ready\n".data(using: .utf8)!)
+
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
 
