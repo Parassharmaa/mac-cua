@@ -182,9 +182,16 @@ final class VirtualCursor {
         panel?.orderOut(nil)
     }
 
+    /// Flip a top-left-origin desktop point to NSEvent/panel bottom-left
+    /// coordinates. macOS's menubar screen (`NSScreen.screens.first`)
+    /// defines the y-axis for all other screens — secondary displays have
+    /// negative y or y > menubarScreen.height depending on arrangement —
+    /// so we always flip against that screen's height, regardless of
+    /// which screen the point ends up on. This matches how `NSEvent`
+    /// reports coordinates and how AppKit frames are laid out.
     private func flipToScreen(_ point: CGPoint) -> CGPoint {
-        guard let mainHeight = NSScreen.screens.first?.frame.height else { return point }
-        return CGPoint(x: point.x, y: mainHeight - point.y)
+        guard let menubarScreen = NSScreen.screens.first else { return point }
+        return CGPoint(x: point.x, y: menubarScreen.frame.height - point.y)
     }
 }
 

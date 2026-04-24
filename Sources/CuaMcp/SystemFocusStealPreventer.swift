@@ -122,6 +122,11 @@ final class SystemFocusStealPreventer {
         guard let restoreTo = restoreTargets.first else { return }
         // Synchronous demote on the same runloop turn — WindowServer won't
         // composite the next frame until this returns.
-        _ = restoreTo.activate(options: [])
+        //
+        // Use `ignoringOtherApps` so we force `restoreTo` frontmost over
+        // the target that just activated. Without this flag the call is
+        // advisory — macOS preserves the activation of the app that just
+        // fired the notification and `restoreTo` stays behind.
+        _ = restoreTo.activate(options: [.activateIgnoringOtherApps])
     }
 }
