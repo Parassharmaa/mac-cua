@@ -108,10 +108,18 @@ extension Tools {
             AXUIElementPerformAction(element, "AXPress" as CFString)
         }
         guard err == .success else {
+            // Enrich the error with the element's role + title so the
+            // model gets actionable context instead of an opaque AXError.
+            let role: String = AXTreeBuilder.attribute(element, "AXRole") ?? "unknown"
+            let title: String = AXTreeBuilder.attribute(element, "AXTitle")
+                ?? AXTreeBuilder.attribute(element, "AXDescription")
+                ?? AXTreeBuilder.attribute(element, "AXValue")
+                ?? ""
+            let detail = title.isEmpty ? role : "\(role) '\(title)'"
             throw MCPError(
                 code: -32000,
                 message:
-                    "AXPress failed on element \(index) (AXError=\(err.rawValue)). This element may not support press — try coordinate click."
+                    "AXPress failed on element \(index) (\(detail), AXError=\(err.rawValue)). This element may not support press — try coordinate click or the element's Secondary Actions."
             )
         }
     }

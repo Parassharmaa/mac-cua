@@ -70,6 +70,16 @@ enum EvalRunner {
         let k = rows.filter { $0.1 == .skip }.count
         print("")
         print("\(p)/\(rows.count) pass  \(f) fail  \(k) skip")
+        // Aggregate stats — mean / median / max of passing-case durations
+        // so regressions in latency surface alongside functional ones.
+        let ds = rows.filter { $0.1 == .pass }.map { $0.2 }.sorted()
+        if !ds.isEmpty {
+            let mean = ds.reduce(0, +) / Double(ds.count)
+            let median = ds[ds.count / 2]
+            let p90 = ds[min(ds.count - 1, Int(Double(ds.count) * 0.9))]
+            print(String(format: "  pass-case timing: mean=%.2fs median=%.2fs p90=%.2fs max=%.2fs",
+                         mean, median, p90, ds.last!))
+        }
     }
 
     private static func pad(_ s: String, _ n: Int) -> String {

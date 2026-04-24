@@ -106,29 +106,55 @@ final class VirtualCursor {
         let sag = dist * 0.18
         let ctrl = NSPoint(x: midX + nx * sag, y: midY + ny * sag)
 
+        // Overshoot point — the Bezier curve targets a point past the
+        // destination, then a critically-damped spring settles back to the
+        // destination. Creates a subtle "click-through" feel where the
+        // cursor carries momentum into the click site.
+        let overshootMag: CGFloat = min(dist * 0.04, 6.0)
+        let ux = dx / dist, uy = dy / dist
+        let overshootOrigin = NSPoint(
+            x: destOrigin.x + ux * overshootMag,
+            y: destOrigin.y + uy * overshootMag)
+
         let fps: Double = 60
-        let totalFrames = max(4, Int(duration * fps))
+        // Dubins-style phase split: 80% traveling the Bezier arc, 20% for
+        // the spring settle. Completion fires once the spring settles.
+        let arcFrames = max(4, Int(duration * 0.80 * fps))
+        let settleFrames = max(2, Int(duration * 0.25 * fps))
         var frame = 0
         let timer = Timer.scheduledTimer(withTimeInterval: 1.0 / fps, repeats: true) { t in
             frame += 1
-            let raw = Double(frame) / Double(totalFrames)
-            if raw >= 1.0 {
-                panel.setFrameOrigin(destOrigin)
-                t.invalidate()
-                view.setMoving(false)
-                completion?()
-                return
-            }
-            let p = raw < 0.5 ? (4 * raw * raw * raw) : (1 - pow(-2 * raw + 2, 3) / 2)
-            let u = 1 - p
-            let x = u * u * startOrigin.x + 2 * u * p * ctrl.x + p * p * destOrigin.x
-            let y = u * u * startOrigin.y + 2 * u * p * ctrl.y + p * p * destOrigin.y
-            panel.setFrameOrigin(NSPoint(x: x, y: y))
-            // Tangent direction for heading (derivative of quadratic Bezier)
-            let tx = 2 * u * (ctrl.x - startOrigin.x) + 2 * p * (destOrigin.x - ctrl.x)
-            let ty = 2 * u * (ctrl.y - startOrigin.y) + 2 * p * (destOrigin.y - ctrl.y)
-            if hypot(tx, ty) > 1 {
-                view.setHeading(atan2(ty, tx))
+            if frame <= arcFrames {
+                // Bezier arc phase — cursor travels through control point
+                // to the overshoot destination.
+                let raw = Double(frame) / Double(arcFrames)
+                let p = raw < 0.5 ? (4 * raw * raw * raw) : (1 - pow(-2 * raw + 2, 3) / 2)
+                let u = 1 - p
+                let x = u * u * startOrigin.x + 2 * u * p * ctrl.x + p * p * overshootOrigin.x
+                let y = u * u * startOrigin.y + 2 * u * p * ctrl.y + p * p * overshootOrigin.y
+                panel.setFrameOrigin(NSPoint(x: x, y: y))
+                let tx = 2 * u * (ctrl.x - startOrigin.x) + 2 * p * (overshootOrigin.x - ctrl.x)
+                let ty = 2 * u * (ctrl.y - startOrigin.y) + 2 * p * (overshootOrigin.y - ctrl.y)
+                if hypot(tx, ty) > 1 {
+                    view.setHeading(atan2(ty, tx))
+                }
+            } else {
+                // Spring settle phase — cursor travels from overshoot
+                // back to destination with a damped exponential.
+                let s = Double(frame - arcFrames) / Double(settleFrames)
+                if s >= 1.0 {
+                    panel.setFrameOrigin(destOrigin)
+                    t.invalidate()
+                    view.setMoving(false)
+                    completion?()
+                    return
+                }
+                // Damped oscillator: x = 1 - e^(-3.5·s)·cos(π·s/2).
+                // Starts at 0, settles to 1 with a small second-crossing.
+                let d = 1.0 - exp(-3.5 * s) * cos(.pi * s * 0.5)
+                let xs = (1 - d) * Double(overshootOrigin.x) + d * Double(destOrigin.x)
+                let ys = (1 - d) * Double(overshootOrigin.y) + d * Double(destOrigin.y)
+                panel.setFrameOrigin(NSPoint(x: xs, y: ys))
             }
         }
         RunLoop.main.add(timer, forMode: .common)
