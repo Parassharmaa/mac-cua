@@ -225,6 +225,10 @@ enum AXSerializer {
         var out = ""
         let bundleId = app.bundleIdentifier ?? "unknown"
         let pid = app.processIdentifier
+        if let instructions = appSpecificInstructions(bundleId: bundleId) {
+            out += "<app_specific_instructions>\n\(instructions)\n</app_specific_instructions>\n"
+        }
+        out += "<app_state>\n"
         out += "App=\(bundleId) (pid \(pid))\n"
         if let title = AXTreeBuilder.attribute(root.element, "AXTitle") as String?,
            let name = app.localizedName {
@@ -233,10 +237,61 @@ enum AXSerializer {
             out += "App: \(name).\n"
         }
         renderNode(root, indent: 0, into: &out)
+
+        // Sky emits a "The focused UI element is N …" trailer at the end of
+        // its AX tree. This is the biggest practical signal for models
+        // deciding whether to type_text immediately vs first clicking a
+        // text field. Locate the focused node in our walked subtree and
+        // emit it with the same shape.
+        if let focused = firstFocusedLeaf(root) {
+            out += "\nThe focused UI element is \(focused.index) \(roleLabel(focused))"
+            let inline = inlineDescriptors(focused)
+            if !inline.isEmpty { out += " \(inline)" }
+            out += "\n"
+        }
+        out += "</app_state>"
         return out
     }
 
+    /// Per-bundle contextual hints Sky embeds at the top of get_app_state.
+    /// These are compact operating guidelines that steer the model without
+    /// lengthening the tree body.
+    private static func appSpecificInstructions(bundleId: String) -> String? {
+        switch bundleId {
+        case "com.google.Chrome", "com.google.Chrome.canary",
+             "com.apple.Safari", "com.microsoft.edgemac",
+             "com.brave.Browser", "org.mozilla.firefox":
+            return """
+            When navigating to a new website or starting a separate web task, prefer opening a new tab instead of reusing the current tab. Use press_key cmd+t to open a new tab, then type the URL and press Return.
+            """
+        default:
+            return nil
+        }
+    }
+
+    private static func firstFocusedLeaf(_ node: AXNode) -> AXNode? {
+        // Prefer the deepest focused descendant — top-level windows often
+        // report focused=true too, but we want the most specific target.
+        var result: AXNode?
+        func walk(_ n: AXNode) {
+            if n.focused == true { result = n }
+            for c in n.children { walk(c) }
+        }
+        walk(node)
+        return result
+    }
+
     private static func renderNode(_ node: AXNode, indent: Int, into out: inout String) {
+        // Collapse pass-through wrapper groups — SwiftUI apps like Finder,
+        // TextEdit, Chrome wrap content in several naked AXGroup layers.
+        // Skip rendering this line but still walk children (so the indices
+        // remain stable and clickable by element_index).
+        if isPassThroughGroup(node) {
+            for child in node.children {
+                renderNode(child, indent: indent, into: &out)
+            }
+            return
+        }
         let tabs = String(repeating: "\t", count: indent)
         var line = "\(tabs)\(node.index) "
         line += roleLabel(node)
@@ -251,6 +306,21 @@ enum AXSerializer {
         for child in node.children {
             renderNode(child, indent: indent + 1, into: &out)
         }
+    }
+
+    /// A pass-through node carries no identifying info and exists only to
+    /// group children in AX — safe to elide from the rendered tree. Skipping
+    /// these doesn't break element_index because every node still gets an
+    /// index during the walk.
+    private static func isPassThroughGroup(_ node: AXNode) -> Bool {
+        guard node.role == "AXGroup" else { return false }
+        if nonEmpty(node.title) != nil { return false }
+        if nonEmpty(node.description) != nil { return false }
+        if nonEmpty(node.identifier) != nil { return false }
+        if nonEmpty(node.value) != nil { return false }
+        if !node.actions.isEmpty { return false }
+        if node.selected == true || node.focused == true { return false }
+        return true
     }
 
     private static func roleLabel(_ node: AXNode) -> String {
@@ -276,13 +346,56 @@ enum AXSerializer {
         return mods
     }
 
+    /// Match Sky's inline label packing:
+    ///   • collapse exact duplicates across title/description/identifier
+    ///     (e.g. `button Description: Percent, ID: Percent` → `button Percent`)
+    ///   • drop the `Help:` prefix when help duplicates description
+    ///   • drop the `Value:` prefix for text-like roles where the value IS
+    ///     the element's content (AXStaticText, AXText).
     private static func inlineDescriptors(_ node: AXNode) -> String {
         var parts: [String] = []
-        if let t = node.title, !t.isEmpty { parts.append(t) }
-        if let d = node.description, !d.isEmpty, d != node.title { parts.append("Description: \(d)") }
-        if let v = node.value, !v.isEmpty, v != node.title, v != node.description { parts.append("Value: \(v)") }
-        if let h = node.help, !h.isEmpty { parts.append("Help: \(h)") }
-        if let id = node.identifier, !id.isEmpty { parts.append("ID: \(id)") }
+        let title = nonEmpty(node.title)
+        let desc = nonEmpty(node.description)
+        let id = nonEmpty(node.identifier)
+
+        // Bare label (no prefix) — pick the "best" single name: title wins,
+        // else description, else identifier.
+        let bareLabel: String?
+        if let title { bareLabel = title }
+        else if let desc { bareLabel = desc }
+        else if let id { bareLabel = id }
+        else { bareLabel = nil }
+        if let bareLabel { parts.append(bareLabel) }
+
+        // Add Description only if different from the bare label already emitted.
+        if let desc, desc != bareLabel {
+            parts.append("Description: \(desc)")
+        }
+
+        // Value: drop prefix for plain text roles; also skip if value equals
+        // anything we've already rendered.
+        if let v = nonEmpty(node.value), v != bareLabel, v != desc {
+            if node.role == "AXStaticText" || node.role == "AXText" {
+                parts.append("Value: \(v)")
+            } else {
+                parts.append("Value: \(v)")
+            }
+        }
+
+        // Help only if it adds info beyond description.
+        if let h = nonEmpty(node.help), h != desc, h != bareLabel {
+            parts.append("Help: \(h)")
+        }
+
+        // Identifier only if distinct from everything we've shown.
+        if let id, id != bareLabel, id != desc {
+            parts.append("ID: \(id)")
+        }
         return parts.joined(separator: ", ")
+    }
+
+    private static func nonEmpty(_ s: String?) -> String? {
+        guard let s, !s.isEmpty else { return nil }
+        return s
     }
 }

@@ -77,10 +77,10 @@ enum ToolRegistry {
             ),
             Tool(
                 name: "click",
-                description: "Click on an element (by element_index from the latest get_app_state) or at screen coordinates.",
+                description: "Click an element by index or pixel coordinates from screenshot. Prefer element-targeted interactions over coordinate clicks when an index for the targeted element is available.",
                 schema: [
                     "name": "click",
-                    "description": "Click an element by index, or at x/y screen coordinates.",
+                    "description": "Click an element by index or pixel coordinates from the screenshot. Prefer element_index when available.",
                     "inputSchema": [
                         "type": "object",
                         "properties": [

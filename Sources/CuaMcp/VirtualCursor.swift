@@ -1,13 +1,25 @@
 import AppKit
 import Foundation
 
+/// Agent-cursor overlay. Draws a distinctive synthetic pointer that animates
+/// to each target along a Bezier arc, pulses on click, and fades when idle.
+/// Soft violet pointer with Bezier arc motion, click pulse, and a
+/// ripple bloom halo. Tip rotates to point toward the motion direction;
+/// defaults to NW (upper-left) when idle, matching macOS cursor
+/// convention.
+///
+/// Enabled by default — set `CUA_HIDE_CURSOR=1` for the purely-invisible
+/// mode.
 final class VirtualCursor {
     static let shared = VirtualCursor()
     private init() {}
 
     private var panel: NSPanel?
-    private var contentView: NSView?
-    private let cursorSize = NSSize(width: 40, height: 40)
+    private var contentView: CursorContentView?
+    private let cursorSize = NSSize(width: 56, height: 56)
+    private static let enabled: Bool = {
+        return ProcessInfo.processInfo.environment["CUA_HIDE_CURSOR"] != "1"
+    }()
 
     private func log(_ s: String) {
         if ProcessInfo.processInfo.environment["CUA_CURSOR_DEBUG"] != nil {
@@ -36,32 +48,95 @@ final class VirtualCursor {
         p.contentView = container
         panel = p
         contentView = container
-        log("installed panel at level \(p.level.rawValue), size \(cursorSize)")
+        log("installed panel size=\(cursorSize)")
     }
 
+    /// Animate the overlay to `target` (top-left origin, desktop points).
+    /// Motion is a quadratic Bezier arc with the control point offset
+    /// perpendicular from the midpoint. For hops < 40pt the motion is
+    /// linear with ease-in-out to avoid jittery micro-arcs. The arrow
+    /// heading rotates to follow the motion direction.
     func animate(to target: CGPoint, duration: TimeInterval = 0.3, completion: (() -> Void)? = nil) {
+        guard Self.enabled else { completion?(); return }
         ensureInstalled()
-        guard let panel else { completion?(); return }
-        let screenPoint = flipToScreen(target)
-        let destOrigin = NSPoint(x: screenPoint.x - cursorSize.width / 2,
-                                 y: screenPoint.y - cursorSize.height / 2)
-        log("animate -> screen=(\(screenPoint.x),\(screenPoint.y)) panel-origin=(\(destOrigin.x),\(destOrigin.y))")
+        guard let panel, let view = contentView else { completion?(); return }
+        let screenDest = flipToScreen(target)
+        let destOrigin = NSPoint(x: screenDest.x - cursorSize.width / 2,
+                                 y: screenDest.y - cursorSize.height / 2)
+
+        let startOrigin: NSPoint
         if !panel.isVisible {
             let currentMouse = NSEvent.mouseLocation
-            panel.setFrameOrigin(NSPoint(x: currentMouse.x - cursorSize.width / 2,
-                                         y: currentMouse.y - cursorSize.height / 2))
+            startOrigin = NSPoint(x: currentMouse.x - cursorSize.width / 2,
+                                  y: currentMouse.y - cursorSize.height / 2)
+            panel.setFrameOrigin(startOrigin)
             panel.orderFrontRegardless()
-            log("panel made visible at mouse=(\(currentMouse.x),\(currentMouse.y))")
+            view.beginFadeIn()
+        } else {
+            startOrigin = panel.frame.origin
         }
-        NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = duration
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            ctx.allowsImplicitAnimation = true
-            panel.animator().setFrameOrigin(destOrigin)
-        }, completionHandler: {
-            self.log("animate complete")
-            completion?()
-        })
+        view.setMoving(true)
+
+        let dx = destOrigin.x - startOrigin.x
+        let dy = destOrigin.y - startOrigin.y
+        let dist = hypot(dx, dy)
+        // Heading in NSEvent/top-right-positive space. Convert to arrow
+        // rotation: arrow path is drawn with tip at +x, tail to -x. To make
+        // the tip lead along motion direction, rotate by motion_angle + π.
+        let motionAngle = (dist > 1) ? atan2(dy, dx) : view.heading
+        view.setHeading(motionAngle)
+
+        if dist < 40 {
+            NSAnimationContext.runAnimationGroup({ ctx in
+                ctx.duration = duration
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                ctx.allowsImplicitAnimation = true
+                panel.animator().setFrameOrigin(destOrigin)
+            }, completionHandler: {
+                view.setMoving(false)
+                completion?()
+            })
+            return
+        }
+
+        let midX = (startOrigin.x + destOrigin.x) / 2
+        let midY = (startOrigin.y + destOrigin.y) / 2
+        let nx = -dy / dist
+        let ny = dx / dist
+        let sag = dist * 0.18
+        let ctrl = NSPoint(x: midX + nx * sag, y: midY + ny * sag)
+
+        let fps: Double = 60
+        let totalFrames = max(4, Int(duration * fps))
+        var frame = 0
+        let timer = Timer.scheduledTimer(withTimeInterval: 1.0 / fps, repeats: true) { t in
+            frame += 1
+            let raw = Double(frame) / Double(totalFrames)
+            if raw >= 1.0 {
+                panel.setFrameOrigin(destOrigin)
+                t.invalidate()
+                view.setMoving(false)
+                completion?()
+                return
+            }
+            let p = raw < 0.5 ? (4 * raw * raw * raw) : (1 - pow(-2 * raw + 2, 3) / 2)
+            let u = 1 - p
+            let x = u * u * startOrigin.x + 2 * u * p * ctrl.x + p * p * destOrigin.x
+            let y = u * u * startOrigin.y + 2 * u * p * ctrl.y + p * p * destOrigin.y
+            panel.setFrameOrigin(NSPoint(x: x, y: y))
+            // Tangent direction for heading (derivative of quadratic Bezier)
+            let tx = 2 * u * (ctrl.x - startOrigin.x) + 2 * p * (destOrigin.x - ctrl.x)
+            let ty = 2 * u * (ctrl.y - startOrigin.y) + 2 * p * (destOrigin.y - ctrl.y)
+            if hypot(tx, ty) > 1 {
+                view.setHeading(atan2(ty, tx))
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    func pulse() {
+        guard Self.enabled else { return }
+        contentView?.pulse()
     }
 
     func hide() {
@@ -74,35 +149,215 @@ final class VirtualCursor {
     }
 }
 
+/// Cursor content layer stack:
+///   • bloomLayer   — radial cyan glow, always behind
+///   • arrowLayer   — gradient-filled 4-point pointer, rotates with heading
+///   • strokeLayer  — white outline on arrow, same rotation
+/// 4-point pointer rendered with CoreAnimation layers — violet fill,
+/// white stroke, radial bloom halo behind.
 final class CursorContentView: NSView {
+    private let bloomLayer = CALayer()
+    private let arrowContainer = CALayer()
+    private let arrowLayer = CAShapeLayer()
+    private let strokeLayer = CAShapeLayer()
+    private var isMoving = false
+    /// Cursor heading in radians — motion direction. Arrow tip rotates to
+    /// point along this vector.
+    private(set) var heading: Double = -.pi * 0.75  // NW tilt idle.
+
     override var isFlipped: Bool { false }
+    override var wantsUpdateLayer: Bool { true }
 
-    override func draw(_ dirtyRect: NSRect) {
-        let ctx = NSGraphicsContext.current?.cgContext
-        guard let ctx else { return }
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        commonInit()
+    }
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        commonInit()
+    }
 
-        let arrow = NSBezierPath()
-        arrow.move(to: NSPoint(x: 6, y: bounds.height - 4))
-        arrow.line(to: NSPoint(x: 6, y: 6))
-        arrow.line(to: NSPoint(x: bounds.width * 0.35, y: bounds.height * 0.35))
-        arrow.line(to: NSPoint(x: bounds.width * 0.55, y: bounds.height * 0.35))
-        arrow.line(to: NSPoint(x: 6, y: bounds.height - 4))
-        arrow.close()
+    private func commonInit() {
+        wantsLayer = true
+        layer?.backgroundColor = CGColor.clear
 
-        NSColor(calibratedRed: 1, green: 0.25, blue: 0.35, alpha: 0.92).setFill()
-        arrow.fill()
+        bloomLayer.frame = bounds
+        bloomLayer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
+        bloomLayer.opacity = 0.0
+        bloomLayer.contents = Self.renderBloom(size: bounds.size, scale: bloomLayer.contentsScale)
+        layer?.addSublayer(bloomLayer)
 
-        NSColor.white.setStroke()
-        arrow.lineWidth = 2.0
-        arrow.stroke()
+        arrowContainer.frame = bounds
+        layer?.addSublayer(arrowContainer)
 
-        let ring = NSBezierPath(ovalIn: NSRect(x: bounds.width * 0.05,
-                                               y: bounds.height * 0.05,
-                                               width: bounds.width * 0.9,
-                                               height: bounds.height * 0.9))
-        NSColor.white.withAlphaComponent(0.35).setStroke()
-        ring.lineWidth = 1.0
-        ring.stroke()
-        _ = ctx
+        let path = Self.arrowPath(scale: bounds.width * 0.70, center: CGPoint(x: bounds.midX, y: bounds.midY))
+        arrowLayer.path = path
+        // Iridescent violet-blue — distinct from any OS cursor color so users
+        // can always tell which pointer is the agent's. Matches Claude brand
+        // orange-gradient undertones but stays in the indigo family for
+        // high contrast on most app backgrounds.
+        arrowLayer.fillColor = NSColor(calibratedRed: 0.45, green: 0.36, blue: 0.95, alpha: 1.0).cgColor
+        arrowLayer.shadowColor = NSColor(calibratedRed: 0.45, green: 0.36, blue: 0.95, alpha: 1).cgColor
+        arrowLayer.shadowRadius = 6
+        arrowLayer.shadowOpacity = 0.75
+        arrowLayer.shadowOffset = .zero
+        // Centered at view midpoint; container holds the rotation.
+        arrowLayer.frame = bounds
+        arrowLayer.position = CGPoint(x: bounds.midX, y: bounds.midY)
+        arrowLayer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        arrowLayer.bounds = bounds
+        arrowContainer.addSublayer(arrowLayer)
+
+        strokeLayer.path = path
+        strokeLayer.fillColor = nil
+        strokeLayer.strokeColor = NSColor(white: 1.0, alpha: 0.95).cgColor
+        strokeLayer.lineWidth = 1.4
+        strokeLayer.lineJoin = .round
+        strokeLayer.lineCap = .round
+        strokeLayer.frame = bounds
+        strokeLayer.position = CGPoint(x: bounds.midX, y: bounds.midY)
+        strokeLayer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        strokeLayer.bounds = bounds
+        arrowContainer.addSublayer(strokeLayer)
+
+        applyHeading()
+    }
+
+    override func layout() {
+        super.layout()
+        bloomLayer.frame = bounds
+        arrowContainer.frame = bounds
+        let path = Self.arrowPath(scale: bounds.width * 0.70, center: CGPoint(x: bounds.midX, y: bounds.midY))
+        arrowLayer.path = path
+        strokeLayer.path = path
+        arrowLayer.frame = bounds
+        arrowLayer.position = CGPoint(x: bounds.midX, y: bounds.midY)
+        strokeLayer.frame = bounds
+        strokeLayer.position = CGPoint(x: bounds.midX, y: bounds.midY)
+        bloomLayer.contents = Self.renderBloom(size: bounds.size, scale: bloomLayer.contentsScale)
+        applyHeading()
+    }
+
+    func setMoving(_ moving: Bool) {
+        isMoving = moving
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(moving ? 0.18 : 0.35)
+        bloomLayer.opacity = moving ? 0.95 : 0.55
+        CATransaction.commit()
+    }
+
+    func beginFadeIn() {
+        bloomLayer.opacity = 0
+        arrowContainer.opacity = 0
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(0.25)
+        bloomLayer.opacity = 0.55
+        arrowContainer.opacity = 1
+        CATransaction.commit()
+    }
+
+    /// Update arrow rotation to point along the motion direction `radians`
+    /// (atan2 of dy,dx in top-left origin — positive Y is downward).
+    func setHeading(_ radians: Double) {
+        // Arrow path has tip at +x in local space. To make tip lead along
+        // motion, rotate by heading (no offset needed — the path itself is
+        // defined with tip at +x so motion = rotation angle).
+        heading = radians
+        applyHeading()
+    }
+
+    private func applyHeading() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        arrowLayer.transform = CATransform3DMakeRotation(CGFloat(heading), 0, 0, 1)
+        strokeLayer.transform = CATransform3DMakeRotation(CGFloat(heading), 0, 0, 1)
+        CATransaction.commit()
+    }
+
+    /// Quick radial pop when a click fires under the cursor.
+    func pulse() {
+        let scale = CABasicAnimation(keyPath: "transform.scale")
+        scale.fromValue = 1.0
+        scale.toValue = 1.35
+        scale.duration = 0.12
+        scale.autoreverses = true
+        scale.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        bloomLayer.add(scale, forKey: "pulse")
+
+        let opacity = CABasicAnimation(keyPath: "opacity")
+        opacity.fromValue = bloomLayer.opacity
+        opacity.toValue = 1.0
+        opacity.duration = 0.12
+        opacity.autoreverses = true
+        bloomLayer.add(opacity, forKey: "pulseOpacity")
+    }
+
+    /// Figma-style multiplayer cursor path. Tip points to upper-left (top-left
+    /// in a 96×104 viewBox), tail trails down-right, matching the collaborative
+    /// cursor design used in Figma / Miro / Linear. Source path:
+    /// `github.com/mskelton/cursed/apps/react/src/components/Arrow.tsx`.
+    ///
+    /// Coord conversion: the original SVG has y-axis down, origin top-left.
+    /// CALayer default is y-axis up when isFlipped is false, so we flip y
+    /// around the centroid and translate to our local anchor. `scale` sets
+    /// the final long-axis length in points.
+    private static func arrowPath(scale: CGFloat, center: CGPoint) -> CGPath {
+        // Raw Figma-cursor coords (SVG y-down, 96x104 viewBox, tip at
+        // top-left). Source: github.com/mskelton/cursed.
+        let raw: [(CGFloat, CGFloat)] = [
+            (0.86, 0.70),    // tip (top-left of viewbox)
+            (95.78, 51.59),  // right shoulder
+            (50.36, 59.68),  // inner notch
+            (34.50, 103.01), // tail (bottom)
+        ]
+        // Remap so the tip lives at +x of local origin. That way, rotating
+        // the layer by `heading` angle brings the tip along motion direction.
+        // Transform:
+        //   nx = (cy_svg - y_raw) * k    — svg-up becomes local +x
+        //   ny = (cx_svg - x_raw) * k    — svg-left becomes local +y
+        // Then translate by `center` so the path fits inside the layer
+        // bounds (origin-at-center instead of origin-at-corner).
+        let maxDim: CGFloat = 104
+        let cxSvg: CGFloat = 48
+        let cySvg: CGFloat = 52
+        let k = scale / maxDim
+        let p = CGMutablePath()
+        for (i, (rx, ry)) in raw.enumerated() {
+            let nx = (cySvg - ry) * k + center.x
+            let ny = (cxSvg - rx) * k + center.y
+            if i == 0 { p.move(to: CGPoint(x: nx, y: ny)) }
+            else { p.addLine(to: CGPoint(x: nx, y: ny)) }
+        }
+        p.closeSubpath()
+        return p
+    }
+
+    /// Pre-rendered radial glow. Centered cyan → transparent, 3-stop
+    /// violet→transparent gradient sized to the overlay bounds.
+    private static func renderBloom(size: NSSize, scale: CGFloat) -> CGImage? {
+        let w = Int(size.width * scale)
+        let h = Int(size.height * scale)
+        guard w > 0, h > 0 else { return nil }
+        let cs = CGColorSpaceCreateDeviceRGB()
+        guard let ctx = CGContext(data: nil, width: w, height: h,
+                                    bitsPerComponent: 8, bytesPerRow: 0,
+                                    space: cs,
+                                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else { return nil }
+        ctx.scaleBy(x: scale, y: scale)
+        let center = CGPoint(x: size.width / 2, y: size.height / 2)
+        let radius = min(size.width, size.height) / 2
+        let colors = [
+            CGColor(red: 0.55, green: 0.45, blue: 0.98, alpha: 0.50),
+            CGColor(red: 0.45, green: 0.36, blue: 0.95, alpha: 0.18),
+            CGColor(red: 0.35, green: 0.26, blue: 0.85, alpha: 0.0),
+        ] as CFArray
+        let gradient = CGGradient(colorsSpace: cs, colors: colors,
+                                    locations: [0.0, 0.55, 1.0])!
+        ctx.drawRadialGradient(gradient,
+                                startCenter: center, startRadius: 0,
+                                endCenter: center, endRadius: radius,
+                                options: [])
+        return ctx.makeImage()
     }
 }
