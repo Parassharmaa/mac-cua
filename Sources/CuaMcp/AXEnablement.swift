@@ -173,3 +173,101 @@ struct BackgroundFocus {
         }
     }
 }
+
+/// Layer 2 — synthetic AX focus. Writes `AXFocused=true` on the enclosing
+/// window and element, and `AXMain=true` on the window, just before an AX
+/// action fires. Restores the prior values on exit. This tells the target
+/// app's AppKit state machine "these components have focus" so it processes
+/// the AX action as if the user had focused them first, without calling
+/// `NSApp.activate` or raising the window.
+///
+/// Best-effort: if an attribute isn't settable on a given element (common —
+/// labels, static text, AX roots), the write is a no-op and the primary
+/// action still dispatches. Skipped entirely when the enclosing window is
+/// minimized — writing AXFocused/AXMain on a minimized Chrome window will
+/// deminiaturize it.
+enum AXFocusSuppression {
+    /// Run `body` with synthetic AX focus applied to `element` and its
+    /// enclosing window. Restores prior focus state on both success and
+    /// throw.
+    static func withSuppression<T>(element: AXUIElement, body: () throws -> T) rethrows -> T {
+        let window = enclosingWindow(of: element)
+        let minimized = window.flatMap { readBool($0, "AXMinimized") } ?? false
+        if minimized {
+            // Don't inflate AX focus on minimized windows — Chrome and others
+            // deminiaturize on AXFocused write. Just run the body.
+            return try body()
+        }
+        let prior = capture(window: window, element: element)
+        apply(window: window, element: element)
+        defer { restore(state: prior) }
+        return try body()
+    }
+
+    // MARK: — state capture / restore
+
+    private struct State {
+        let window: AXUIElement?
+        let element: AXUIElement
+        let priorWindowFocused: Bool?
+        let priorWindowMain: Bool?
+        let priorElementFocused: Bool?
+    }
+
+    private static func capture(window: AXUIElement?, element: AXUIElement) -> State {
+        State(
+            window: window,
+            element: element,
+            priorWindowFocused: window.flatMap { readBool($0, "AXFocused") },
+            priorWindowMain: window.flatMap { readBool($0, "AXMain") },
+            priorElementFocused: readBool(element, "AXFocused")
+        )
+    }
+
+    private static func apply(window: AXUIElement?, element: AXUIElement) {
+        if let window {
+            writeBool(window, "AXFocused", true)
+            writeBool(window, "AXMain", true)
+        }
+        writeBool(element, "AXFocused", true)
+    }
+
+    private static func restore(state: State) {
+        if let window = state.window {
+            if let prior = state.priorWindowFocused {
+                writeBool(window, "AXFocused", prior)
+            }
+            if let prior = state.priorWindowMain {
+                writeBool(window, "AXMain", prior)
+            }
+        }
+        if let prior = state.priorElementFocused {
+            writeBool(state.element, "AXFocused", prior)
+        }
+    }
+
+    // MARK: — AX helpers
+
+    private static func enclosingWindow(of element: AXUIElement) -> AXUIElement? {
+        var value: CFTypeRef?
+        let err = AXUIElementCopyAttributeValue(element, "AXWindow" as CFString, &value)
+        guard err == .success, let raw = value else { return nil }
+        guard CFGetTypeID(raw) == AXUIElementGetTypeID() else { return nil }
+        return unsafeBitCast(raw, to: AXUIElement.self)
+    }
+
+    private static func readBool(_ element: AXUIElement, _ attribute: String) -> Bool? {
+        var value: CFTypeRef?
+        let err = AXUIElementCopyAttributeValue(element, attribute as CFString, &value)
+        guard err == .success, let v = value else { return nil }
+        if CFGetTypeID(v) == CFBooleanGetTypeID() {
+            return CFBooleanGetValue((v as! CFBoolean))
+        }
+        return nil
+    }
+
+    private static func writeBool(_ element: AXUIElement, _ attribute: String, _ value: Bool) {
+        _ = AXUIElementSetAttributeValue(
+            element, attribute as CFString, (value ? kCFBooleanTrue : kCFBooleanFalse) as CFTypeRef)
+    }
+}

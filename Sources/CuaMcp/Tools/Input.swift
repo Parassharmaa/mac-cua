@@ -95,13 +95,18 @@ extension Tools {
             animateCursorSync(to: center, duration: 0.25)
             pulseCursor()
         }
-        // Always arm the focus-steal preventer. `AXPress` dispatched to a
-        // backgrounded app sometimes causes the app to self-activate as
-        // its target view takes focus; the preventer demotes it back on
-        // the same runloop turn.
+        // Arm the focus-steal preventer + synthetic AX focus. AXPress
+        // dispatched to a backgrounded app sometimes causes the app to
+        // self-activate as its target view takes focus; the preventer
+        // demotes it back on the same runloop turn. The AX focus
+        // suppression writes AXFocused/AXMain on window+element so the
+        // target's internal state machine processes the action as
+        // focused, without actually raising the window.
         let guardRail = BackgroundFocus.activate(pid: targetPid)
         defer { guardRail.restore() }
-        let err = AXUIElementPerformAction(element, "AXPress" as CFString)
+        let err = AXFocusSuppression.withSuppression(element: element) {
+            AXUIElementPerformAction(element, "AXPress" as CFString)
+        }
         guard err == .success else {
             throw MCPError(
                 code: -32000,
@@ -132,7 +137,9 @@ extension Tools {
         }
         let guardRail = BackgroundFocus.activate(pid: targetPid)
         defer { guardRail.restore() }
-        _ = AXUIElementPerformAction(element, normalized as CFString)
+        AXFocusSuppression.withSuppression(element: element) {
+            _ = AXUIElementPerformAction(element, normalized as CFString)
+        }
     }
 
     static func setValue(index: Int, value: String) throws {
@@ -151,7 +158,9 @@ extension Tools {
         }
         let guardRail = BackgroundFocus.activate(pid: targetPid)
         defer { guardRail.restore() }
-        let err = AXUIElementSetAttributeValue(element, "AXValue" as CFString, value as CFString)
+        let err = AXFocusSuppression.withSuppression(element: element) {
+            AXUIElementSetAttributeValue(element, "AXValue" as CFString, value as CFString)
+        }
         guard err == .success else {
             throw MCPError(code: -32000, message: "Failed to set value (AXError=\(err.rawValue))")
         }
