@@ -9,7 +9,11 @@ extension Tools {
         let pid = try resolvePid(app)
         AXEnablement.shared.installIfNeeded(for: pid)
         guard let combo = KeyParser.parse(spec) else {
-            throw MCPError(code: -32602, message: "Unrecognized key: \(spec). Use xdotool-style names like Return, Tab, super+c, KP_0.")
+            throw MCPError(
+                code: -32602,
+                message:
+                    "Unrecognized key: \(spec). Use xdotool-style names like Return, Tab, super+c, KP_0."
+            )
         }
         let guardRail = BackgroundFocus.activate(pid: pid)
         defer { guardRail.restore() }
@@ -42,7 +46,9 @@ extension Tools {
         }
     }
 
-    static func clickAt(x: CGFloat, y: CGFloat, button: String = "left", clickCount: Int = 1, app: String? = nil) throws {
+    static func clickAt(
+        x: CGFloat, y: CGFloat, button: String = "left", clickCount: Int = 1, app: String? = nil
+    ) throws {
         try requireAX()
         let pid = try resolvePid(app)
         AXEnablement.shared.installIfNeeded(for: pid)
@@ -61,11 +67,13 @@ extension Tools {
         // The primer is discarded by the renderer (no window claims that
         // coord) so it has no visible effect.
         if isChromiumFamily(pid: pid) {
-            postMouse(type: .leftMouseDown, at: CGPoint(x: -1, y: -1),
-                      button: .left, clickState: 1, pid: pid)
+            postMouse(
+                type: .leftMouseDown, at: CGPoint(x: -1, y: -1),
+                button: .left, clickState: 1, pid: pid)
             Thread.sleep(forTimeInterval: 0.008)
-            postMouse(type: .leftMouseUp, at: CGPoint(x: -1, y: -1),
-                      button: .left, clickState: 1, pid: pid)
+            postMouse(
+                type: .leftMouseUp, at: CGPoint(x: -1, y: -1),
+                button: .left, clickState: 1, pid: pid)
             Thread.sleep(forTimeInterval: 0.015)
         }
         animateCursorSync(to: point, duration: 0.28)
@@ -95,7 +103,11 @@ extension Tools {
         defer { guardRail.restore() }
         let err = AXUIElementPerformAction(element, "AXPress" as CFString)
         guard err == .success else {
-            throw MCPError(code: -32000, message: "AXPress failed on element \(index) (AXError=\(err.rawValue)). This element may not support press — try coordinate click.")
+            throw MCPError(
+                code: -32000,
+                message:
+                    "AXPress failed on element \(index) (AXError=\(err.rawValue)). This element may not support press — try coordinate click."
+            )
         }
     }
 
@@ -106,7 +118,11 @@ extension Tools {
         AXUIElementCopyActionNames(element, &supported)
         let names = (supported as? [String]) ?? []
         guard names.contains(normalized) else {
-            throw MCPError(code: -32000, message: "\(action) is not a valid secondary action for element \(index) (available: \(names))")
+            throw MCPError(
+                code: -32000,
+                message:
+                    "\(action) is not a valid secondary action for element \(index) (available: \(names))"
+            )
         }
         let targetPid = pidOfElement(element)
         AXEnablement.shared.installIfNeeded(for: targetPid)
@@ -124,7 +140,8 @@ extension Tools {
         var settable: DarwinBoolean = false
         AXUIElementIsAttributeSettable(element, "AXValue" as CFString, &settable)
         guard settable.boolValue else {
-            throw MCPError(code: -32000, message: "Cannot set a value for an element that is not settable")
+            throw MCPError(
+                code: -32000, message: "Cannot set a value for an element that is not settable")
         }
         let targetPid = pidOfElement(element)
         AXEnablement.shared.installIfNeeded(for: targetPid)
@@ -140,7 +157,8 @@ extension Tools {
         }
     }
 
-    static func scroll(direction: String, pages: Int, index: Int? = nil, app: String? = nil) throws {
+    static func scroll(direction: String, pages: Int, index: Int? = nil, app: String? = nil) throws
+    {
         try requireAX()
         let pid = try resolvePid(app)
         AXEnablement.shared.installIfNeeded(for: pid)
@@ -162,7 +180,9 @@ extension Tools {
         postPhasedScroll(at: target.location, direction: dir, pages: pages, pid: pid)
     }
 
-    static func drag(fromX: CGFloat, fromY: CGFloat, toX: CGFloat, toY: CGFloat, app: String? = nil) throws {
+    static func drag(fromX: CGFloat, fromY: CGFloat, toX: CGFloat, toY: CGFloat, app: String? = nil)
+        throws
+    {
         try requireAX()
         let pid = try resolvePid(app)
         let guardRail = BackgroundFocus.activate(pid: pid)
@@ -193,7 +213,11 @@ private func requireAX() throws {
 
 private func lookupElement(_ index: Int) throws -> AXUIElement {
     guard let element = ElementCache.shared.lookup(index: index) else {
-        throw MCPError(code: -32602, message: "The element ID is no longer valid. Re-query the latest state with get_app_state before sending more actions.")
+        throw MCPError(
+            code: -32602,
+            message:
+                "The element ID is no longer valid. Re-query the latest state with get_app_state before sending more actions."
+        )
     }
     return element
 }
@@ -221,7 +245,8 @@ private func pidOfElement(_ element: AXUIElement) -> pid_t {
 private func convertScreenshotPixelToDesktopPoint(x: CGFloat, y: CGFloat, pid: pid_t) -> CGPoint {
     let axApp = AXUIElementCreateApplication(pid)
     guard let window: AXUIElement = AXTreeBuilder.attribute(axApp, "AXFocusedWindow"),
-          let origin = AXTreeBuilder.pointAttribute(window, "AXPosition") else {
+        let origin = AXTreeBuilder.pointAttribute(window, "AXPosition")
+    else {
         return CGPoint(x: x, y: y)
     }
     // Scale factor: ask the screen containing the window.
@@ -245,7 +270,11 @@ private func flipToCocoa(point: CGPoint) -> CGPoint {
 private func resolvePid(_ identifier: String?) throws -> pid_t {
     let ws = NSWorkspace.shared
     if let id = identifier {
-        guard let app = ws.runningApplications.first(where: { $0.bundleIdentifier == id || $0.localizedName == id }) else {
+        guard
+            let app = ws.runningApplications.first(where: {
+                $0.bundleIdentifier == id || $0.localizedName == id
+            })
+        else {
             throw MCPError(code: -32000, message: "Running application not found: \(id)")
         }
         return app.processIdentifier
@@ -262,7 +291,8 @@ private func tryAXValueInsert(pid: pid_t, text: String) -> Bool {
     //    has an active text control. When the app is backgrounded this is
     //    often nil, which is why we walk to find a text area below.
     if let focused: AXUIElement = AXTreeBuilder.attribute(axApp, "AXFocusedUIElement"),
-       insertText(into: focused, text: text) {
+        insertText(into: focused, text: text)
+    {
         return true
     }
     // 2. Fallback: walk the focused window (or first window) and insert
@@ -291,14 +321,16 @@ private func insertText(into element: AXUIElement, text: String) -> Bool {
     var selectedSettable: DarwinBoolean = false
     AXUIElementIsAttributeSettable(element, "AXSelectedText" as CFString, &selectedSettable)
     if selectedSettable.boolValue {
-        let err = AXUIElementSetAttributeValue(element, "AXSelectedText" as CFString, text as CFString)
+        let err = AXUIElementSetAttributeValue(
+            element, "AXSelectedText" as CFString, text as CFString)
         if err == .success { return true }
     }
     var valueSettable: DarwinBoolean = false
     AXUIElementIsAttributeSettable(element, "AXValue" as CFString, &valueSettable)
     if valueSettable.boolValue {
         let existing: String = AXTreeBuilder.attribute(element, "AXValue") ?? ""
-        let err = AXUIElementSetAttributeValue(element, "AXValue" as CFString, (existing + text) as CFString)
+        let err = AXUIElementSetAttributeValue(
+            element, "AXValue" as CFString, (existing + text) as CFString)
         if err == .success { return true }
     }
     return false
@@ -313,7 +345,8 @@ private func findTextField(in root: AXUIElement) -> AXUIElement? {
         let cur = queue.removeFirst()
         visited += 1
         if let role: String = AXTreeBuilder.attribute(cur, "AXRole"),
-           role == "AXTextArea" || role == "AXTextField" {
+            role == "AXTextArea" || role == "AXTextField"
+        {
             return cur
         }
         if let children: [AXUIElement] = AXTreeBuilder.attribute(cur, "AXChildren") {
@@ -360,12 +393,13 @@ private func postEvent(_ event: CGEvent?, pid: pid_t?, kind: SyntheticEventKind)
 /// trust filter requires but native AppKit apps reject.
 private func isChromiumFamily(pid: pid_t) -> Bool {
     guard let app = NSRunningApplication(processIdentifier: pid),
-          let bid = app.bundleIdentifier else { return false }
+        let bid = app.bundleIdentifier
+    else { return false }
     let lower = bid.lowercased()
     if lower.hasPrefix("com.google.chrome") { return true }
     if lower.hasPrefix("com.microsoft.edgemac") { return true }
     if lower.hasPrefix("com.brave.browser") { return true }
-    if lower.hasPrefix("company.thebrowser.browser") { return true } // Arc
+    if lower.hasPrefix("company.thebrowser.browser") { return true }  // Arc
     if lower.hasPrefix("com.operasoftware") { return true }
     if lower.hasPrefix("com.vivaldi") { return true }
     if lower == "com.tinyspeck.slackmacgap" { return true }
@@ -375,8 +409,11 @@ private func isChromiumFamily(pid: pid_t) -> Bool {
     return false
 }
 
-private func postMouse(type: CGEventType, at point: CGPoint, button: CGMouseButton, clickState: Int, pid: pid_t?) {
-    let event = CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: point, mouseButton: button)
+private func postMouse(
+    type: CGEventType, at point: CGPoint, button: CGMouseButton, clickState: Int, pid: pid_t?
+) {
+    let event = CGEvent(
+        mouseEventSource: nil, mouseType: type, mouseCursorPosition: point, mouseButton: button)
     event?.setIntegerValueField(.mouseEventClickState, value: Int64(clickState))
     // Stamp a window-local point via `CGEventSetWindowLocation` so
     // WindowServer's hit-test uses the window-local point directly instead
@@ -397,7 +434,7 @@ private func postMouse(type: CGEventType, at point: CGPoint, button: CGMouseButt
 private func windowLocalPoint(for screenPoint: CGPoint, pid: pid_t) -> CGPoint? {
     let axApp = AXUIElementCreateApplication(pid)
     guard let window: AXUIElement = AXTreeBuilder.attribute(axApp, "AXFocusedWindow"),
-          let origin = AXTreeBuilder.pointAttribute(window, "AXPosition")
+        let origin = AXTreeBuilder.pointAttribute(window, "AXPosition")
     else { return nil }
     return CGPoint(x: screenPoint.x - origin.x, y: screenPoint.y - origin.y)
 }
@@ -410,8 +447,11 @@ private func postKey(virtualKey: CGKeyCode, flags: CGEventFlags, pid: pid_t) {
     Thread.sleep(forTimeInterval: 0.02)
 }
 
-private func postKeyEvent(source: CGEventSource?, virtualKey: CGKeyCode, keyDown: Bool, flags: CGEventFlags, pid: pid_t) {
-    guard let event = CGEvent(keyboardEventSource: source, virtualKey: virtualKey, keyDown: keyDown) else { return }
+private func postKeyEvent(
+    source: CGEventSource?, virtualKey: CGKeyCode, keyDown: Bool, flags: CGEventFlags, pid: pid_t
+) {
+    guard let event = CGEvent(keyboardEventSource: source, virtualKey: virtualKey, keyDown: keyDown)
+    else { return }
     event.flags = flags
     postEvent(event, pid: pid, kind: .keyboard)
 }
@@ -425,8 +465,12 @@ private func typeUnicode(_ str: String, modifiers: CGEventFlags, pid: pid_t) {
     Thread.sleep(forTimeInterval: 0.012)
 }
 
-private func postUnicodeEvent(source: CGEventSource?, utf16: [UniChar], keyDown: Bool, modifiers: CGEventFlags, pid: pid_t) {
-    guard let event = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: keyDown) else { return }
+private func postUnicodeEvent(
+    source: CGEventSource?, utf16: [UniChar], keyDown: Bool, modifiers: CGEventFlags, pid: pid_t
+) {
+    guard let event = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: keyDown) else {
+        return
+    }
     event.flags = modifiers
     utf16.withUnsafeBufferPointer { buf in
         event.keyboardSetUnicodeString(stringLength: buf.count, unicodeString: buf.baseAddress)
@@ -471,7 +515,8 @@ private func pulseCursor() {
 
 private func centerOfElement(_ element: AXUIElement) -> CGPoint? {
     guard let position = AXTreeBuilder.pointAttribute(element, "AXPosition"),
-          let size = AXTreeBuilder.sizeAttribute(element, "AXSize") else { return nil }
+        let size = AXTreeBuilder.sizeAttribute(element, "AXSize")
+    else { return nil }
     return CGPoint(x: position.x + size.width / 2, y: position.y + size.height / 2)
 }
 
@@ -480,7 +525,8 @@ private func centerOfElement(_ element: AXUIElement) -> CGPoint? {
 private func hoverOverFocusedElement(pid: pid_t) {
     let axApp = AXUIElementCreateApplication(pid)
     if let focused: AXUIElement = AXTreeBuilder.attribute(axApp, "AXFocusedUIElement"),
-       let center = centerOfElement(focused) {
+        let center = centerOfElement(focused)
+    {
         animateCursorSync(to: center, duration: 0.22)
         return
     }
@@ -497,10 +543,15 @@ private func resolveScrollTarget(index: Int?, pid: pid_t) throws -> ScrollTarget
     let fallback = windowCenter(forPid: pid)
     if let index {
         guard let element = ElementCache.shared.lookup(index: index) else {
-            throw MCPError(code: -32602, message: "The element ID is no longer valid. Re-query the latest state with get_app_state before sending more actions.")
+            throw MCPError(
+                code: -32602,
+                message:
+                    "The element ID is no longer valid. Re-query the latest state with get_app_state before sending more actions."
+            )
         }
         if let position = AXTreeBuilder.pointAttribute(element, "AXPosition"),
-           let size = AXTreeBuilder.sizeAttribute(element, "AXSize") {
+            let size = AXTreeBuilder.sizeAttribute(element, "AXSize")
+        {
             let center = CGPoint(x: position.x + size.width / 2, y: position.y + size.height / 2)
             if isOnScreen(center) {
                 return ScrollTarget(location: center, element: element)
@@ -521,8 +572,9 @@ private func isOnScreen(_ point: CGPoint) -> Bool {
 private func windowCenter(forPid pid: pid_t) -> CGPoint {
     let axApp = AXUIElementCreateApplication(pid)
     if let window: AXUIElement = AXTreeBuilder.attribute(axApp, "AXFocusedWindow"),
-       let pos = AXTreeBuilder.pointAttribute(window, "AXPosition"),
-       let size = AXTreeBuilder.sizeAttribute(window, "AXSize") {
+        let pos = AXTreeBuilder.pointAttribute(window, "AXPosition"),
+        let size = AXTreeBuilder.sizeAttribute(window, "AXSize")
+    {
         return CGPoint(x: pos.x + size.width / 2, y: pos.y + size.height / 2)
     }
     let screen = NSScreen.screens.first?.frame ?? CGRect(x: 0, y: 0, width: 1440, height: 900)
@@ -567,7 +619,9 @@ private func scrollDebug(_ msg: String) {
     }
 }
 
-private func performSemanticScroll(on element: AXUIElement, direction: ScrollDirection, pages: Int) -> Bool {
+private func performSemanticScroll(on element: AXUIElement, direction: ScrollDirection, pages: Int)
+    -> Bool
+{
     let action = semanticAction(direction)
     var supported: CFArray?
     AXUIElementCopyActionNames(element, &supported)
@@ -579,7 +633,9 @@ private func performSemanticScroll(on element: AXUIElement, direction: ScrollDir
     return true
 }
 
-private func postPhasedScroll(at location: CGPoint, direction: ScrollDirection, pages: Int, pid: pid_t?) {
+private func postPhasedScroll(
+    at location: CGPoint, direction: ScrollDirection, pages: Int, pid: pid_t?
+) {
     let total = CGFloat(max(1, pages)) * 400.0
     let (dx, dy): (CGFloat, CGFloat)
     switch direction {
@@ -593,23 +649,31 @@ private func postPhasedScroll(at location: CGPoint, direction: ScrollDirection, 
     let stepDy = dy / CGFloat(steps)
     for s in 0..<steps {
         let phase: CGScrollPhase
-        if s == 0 { phase = .began }
-        else if s == steps - 1 { phase = .ended }
-        else { phase = .changed }
+        if s == 0 {
+            phase = .began
+        } else if s == steps - 1 {
+            phase = .ended
+        } else {
+            phase = .changed
+        }
         postScrollEvent(location: location, dx: stepDx, dy: stepDy, phase: phase, pid: pid)
         Thread.sleep(forTimeInterval: 0.012)
     }
 }
 
-private func postScrollEvent(location: CGPoint, dx: CGFloat, dy: CGFloat, phase: CGScrollPhase, pid: pid_t?) {
-    guard let event = CGEvent(
-        scrollWheelEvent2Source: nil,
-        units: .pixel,
-        wheelCount: 2,
-        wheel1: Int32(dy),
-        wheel2: Int32(dx),
-        wheel3: 0
-    ) else { return }
+private func postScrollEvent(
+    location: CGPoint, dx: CGFloat, dy: CGFloat, phase: CGScrollPhase, pid: pid_t?
+) {
+    guard
+        let event = CGEvent(
+            scrollWheelEvent2Source: nil,
+            units: .pixel,
+            wheelCount: 2,
+            wheel1: Int32(dy),
+            wheel2: Int32(dx),
+            wheel3: 0
+        )
+    else { return }
     event.location = location
     event.setIntegerValueField(.scrollWheelEventScrollPhase, value: Int64(phase.rawValue))
     event.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)

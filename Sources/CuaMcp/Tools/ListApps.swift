@@ -64,8 +64,13 @@ extension Tools {
 
         // Also enumerate installed apps from /Applications + /System/Applications + ~/Applications,
         // pulling last-used + uses from Spotlight metadata.
-        for dir in ["/Applications", "/System/Applications", NSString(string: "~/Applications").expandingTildeInPath] {
-            guard let contents = try? FileManager.default.contentsOfDirectory(atPath: dir) else { continue }
+        for dir in [
+            "/Applications", "/System/Applications",
+            NSString(string: "~/Applications").expandingTildeInPath,
+        ] {
+            guard let contents = try? FileManager.default.contentsOfDirectory(atPath: dir) else {
+                continue
+            }
             for item in contents where item.hasSuffix(".app") {
                 let path = (dir as NSString).appendingPathComponent(item)
                 guard let (bid, name) = bundleInfo(path: path) else { continue }
@@ -75,7 +80,8 @@ extension Tools {
                     existing.uses = uses ?? existing.uses
                     map[bid] = existing
                 } else if lastUsed != nil || uses != nil {
-                    map[bid] = AppEntry(name: name, bundleId: bid, running: false, lastUsed: lastUsed, uses: uses)
+                    map[bid] = AppEntry(
+                        name: name, bundleId: bid, running: false, lastUsed: lastUsed, uses: uses)
                 }
             }
         }
@@ -85,8 +91,10 @@ extension Tools {
     private static func bundleInfo(path: String) -> (String, String)? {
         let url = URL(fileURLWithPath: path)
         guard let bundle = Bundle(url: url),
-              let bid = bundle.bundleIdentifier else { return nil }
-        let name = (bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
+            let bid = bundle.bundleIdentifier
+        else { return nil }
+        let name =
+            (bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
             ?? (bundle.object(forInfoDictionaryKey: "CFBundleName") as? String)
             ?? (url.deletingPathExtension().lastPathComponent)
         return (bid, name)

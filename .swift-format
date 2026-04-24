@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "indentation": {
+    "spaces": 4
+  },
+  "lineLength": 100,
+  "tabWidth": 4,
+  "respectsExistingLineBreaks": true,
+  "lineBreakAroundMultilineExpressionChainComponents": false,
+  "lineBreakBeforeControlFlowKeywords": false,
+  "lineBreakBeforeEachArgument": false,
+  "lineBreakBeforeEachGenericRequirement": false,
+  "prioritizeKeepingFunctionOutputTogether": false,
+  "rules": {
+    "AllPublicDeclarationsHaveDocumentation": false,
+    "DoNotUseSemicolons": true,
+    "NoBlockComments": false,
+    "NoLeadingUnderscores": false,
+    "TrailingComma": false
+  }
+}

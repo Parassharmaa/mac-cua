@@ -32,17 +32,22 @@ enum Screenshot {
                 // filter drops windows the window server considers hidden — on
                 // repeated get_app_state calls, Chrome's window can flicker
                 // in/out of that set during layout. Filter ourselves instead.
-                let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+                let content = try await SCShareableContent.excludingDesktopWindows(
+                    false, onScreenWindowsOnly: false)
                 let candidates = content.windows
                     .filter { window -> Bool in
                         guard window.owningApplication?.processID == pid else { return false }
                         guard window.windowLayer == 0 else { return false }
                         return window.frame.width >= 32 && window.frame.height >= 32
                     }
-                    .sorted { ($0.frame.width * $0.frame.height) > ($1.frame.width * $1.frame.height) }
+                    .sorted {
+                        ($0.frame.width * $0.frame.height) > ($1.frame.width * $1.frame.height)
+                    }
                 guard let window = candidates.first else {
-                    reason = "no matching layer-0 window for pid=\(pid); total=\(content.windows.count)"
-                    sem.signal(); return
+                    reason =
+                        "no matching layer-0 window for pid=\(pid); total=\(content.windows.count)"
+                    sem.signal()
+                    return
                 }
                 let config = SCStreamConfiguration()
                 config.width = Int(window.frame.width)
@@ -50,7 +55,8 @@ enum Screenshot {
                 config.capturesAudio = false
                 config.showsCursor = false
                 let filter = SCContentFilter(desktopIndependentWindow: window)
-                image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
+                image = try await SCScreenshotManager.captureImage(
+                    contentFilter: filter, configuration: config)
                 if image == nil { reason = "captureImage returned nil" }
             } catch {
                 reason = "SCK threw: \(error)"
@@ -69,25 +75,28 @@ enum Screenshot {
 
     private static func captureViaCGWindowList(pid: pid_t) -> String? {
         let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
-        guard let windowInfo = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
+        guard
+            let windowInfo = CGWindowListCopyWindowInfo(options, kCGNullWindowID)
+                as? [[String: Any]]
+        else {
             return nil
         }
         let match = windowInfo.first { info in
             guard let ownerPID = info[kCGWindowOwnerPID as String] as? pid_t,
-                  ownerPID == pid,
-                  let layer = info[kCGWindowLayer as String] as? Int,
-                  layer == 0
+                ownerPID == pid,
+                let layer = info[kCGWindowLayer as String] as? Int,
+                layer == 0
             else { return false }
             return true
         }
         guard let match,
-              let windowID = match[kCGWindowNumber as String] as? CGWindowID,
-              let cgImage = CGWindowListCreateImage(
-                  .null,
-                  .optionIncludingWindow,
-                  windowID,
-                  [.boundsIgnoreFraming, .bestResolution]
-              )
+            let windowID = match[kCGWindowNumber as String] as? CGWindowID,
+            let cgImage = CGWindowListCreateImage(
+                .null,
+                .optionIncludingWindow,
+                windowID,
+                [.boundsIgnoreFraming, .bestResolution]
+            )
         else { return nil }
         return pngBase64(from: cgImage)
     }

@@ -4,7 +4,18 @@ VERSION ?= 0.1.0
 BUILD_DIR := .build/release
 APP_BUNDLE := $(BUILD_DIR)/$(APP_NAME).app
 
-.PHONY: build release app sign clean test perf bench report dist install uninstall
+.PHONY: build release app sign clean test eval format lint dist install uninstall
+
+SWIFT_FORMAT := $(shell command -v swift-format 2>/dev/null || \
+                        ls /opt/homebrew/var/homebrew/tmp/.cellar/swift-format/*/bin/swift-format 2>/dev/null | head -1)
+
+format:
+	@test -x "$(SWIFT_FORMAT)" || { echo "swift-format not found. brew install swift-format"; exit 1; }
+	$(SWIFT_FORMAT) format --in-place --recursive --configuration .swift-format Sources/
+
+lint:
+	@test -x "$(SWIFT_FORMAT)" || { echo "swift-format not found. brew install swift-format"; exit 1; }
+	$(SWIFT_FORMAT) lint --recursive --configuration .swift-format Sources/
 
 build:
 	swift build

@@ -29,15 +29,20 @@ enum ToolRegistry {
             ),
             Tool(
                 name: "press_key",
-                description: "Press a key or key combination on the keyboard (xdotool-style: Return, Tab, super+c, KP_0).",
+                description:
+                    "Press a key or key combination on the keyboard (xdotool-style: Return, Tab, super+c, KP_0).",
                 schema: [
                     "name": "press_key",
-                    "description": "Press a key or key combination (xdotool-style: Return, Tab, super+c, KP_0).",
+                    "description":
+                        "Press a key or key combination (xdotool-style: Return, Tab, super+c, KP_0).",
                     "inputSchema": [
                         "type": "object",
                         "properties": [
                             "key": ["type": "string"],
-                            "app": ["type": "string", "description": "Optional: activate this app before pressing."],
+                            "app": [
+                                "type": "string",
+                                "description": "Optional: activate this app before pressing.",
+                            ],
                         ] as [String: Any],
                         "required": ["key"],
                         "additionalProperties": false,
@@ -53,7 +58,8 @@ enum ToolRegistry {
             ),
             Tool(
                 name: "type_text",
-                description: "Type the given text into the currently focused field. Bypasses layout-specific keycodes by sending Unicode.",
+                description:
+                    "Type the given text into the currently focused field. Bypasses layout-specific keycodes by sending Unicode.",
                 schema: [
                     "name": "type_text",
                     "description": "Type the given text into the currently focused field.",
@@ -61,7 +67,10 @@ enum ToolRegistry {
                         "type": "object",
                         "properties": [
                             "text": ["type": "string"],
-                            "app": ["type": "string", "description": "Optional: activate this app before typing."],
+                            "app": [
+                                "type": "string",
+                                "description": "Optional: activate this app before typing.",
+                            ],
                         ] as [String: Any],
                         "required": ["text"],
                         "additionalProperties": false,
@@ -77,10 +86,12 @@ enum ToolRegistry {
             ),
             Tool(
                 name: "click",
-                description: "Click an element by index or pixel coordinates from screenshot. Prefer element-targeted interactions over coordinate clicks when an index for the targeted element is available.",
+                description:
+                    "Click an element by index or pixel coordinates from screenshot. Prefer element-targeted interactions over coordinate clicks when an index for the targeted element is available.",
                 schema: [
                     "name": "click",
-                    "description": "Click an element by index or pixel coordinates from the screenshot. Prefer element_index when available.",
+                    "description":
+                        "Click an element by index or pixel coordinates from the screenshot. Prefer element_index when available.",
                     "inputSchema": [
                         "type": "object",
                         "properties": [
@@ -114,16 +125,21 @@ enum ToolRegistry {
                     } else if let x = doubleOf("x"), let y = doubleOf("y") {
                         let button = args["button"] as? String ?? "left"
                         let count = intOf("click_count") ?? 1
-                        try Tools.clickAt(x: CGFloat(x), y: CGFloat(y), button: button, clickCount: count, app: args["app"] as? String)
+                        try Tools.clickAt(
+                            x: CGFloat(x), y: CGFloat(y), button: button, clickCount: count,
+                            app: args["app"] as? String)
                     } else {
-                        throw MCPError(code: -32602, message: "click requires element_index or (x,y). args=\(args)")
+                        throw MCPError(
+                            code: -32602,
+                            message: "click requires element_index or (x,y). args=\(args)")
                     }
                     return ["content": [["type": "text", "text": "ok"]]]
                 }
             ),
             Tool(
                 name: "perform_secondary_action",
-                description: "Perform a named AX action on an element (e.g. Raise, ShowMenu, ShowAlternateUI).",
+                description:
+                    "Perform a named AX action on an element (e.g. Raise, ShowMenu, ShowAlternateUI).",
                 schema: [
                     "name": "perform_secondary_action",
                     "description": "Perform a named AX action on an element.",
@@ -139,8 +155,11 @@ enum ToolRegistry {
                 ],
                 handler: { args in
                     guard let index = args["element_index"] as? Int,
-                          let action = args["action"] as? String else {
-                        throw MCPError(code: -32602, message: "perform_secondary_action requires element_index and action")
+                        let action = args["action"] as? String
+                    else {
+                        throw MCPError(
+                            code: -32602,
+                            message: "perform_secondary_action requires element_index and action")
                     }
                     try Tools.performSecondaryAction(index: index, action: action)
                     return ["content": [["type": "text", "text": "ok"]]]
@@ -148,7 +167,8 @@ enum ToolRegistry {
             ),
             Tool(
                 name: "set_value",
-                description: "Set an element's value directly (faster and more reliable than type_text for text fields).",
+                description:
+                    "Set an element's value directly (faster and more reliable than type_text for text fields).",
                 schema: [
                     "name": "set_value",
                     "description": "Set an element's value directly.",
@@ -164,8 +184,10 @@ enum ToolRegistry {
                 ],
                 handler: { args in
                     guard let index = args["element_index"] as? Int,
-                          let value = args["value"] as? String else {
-                        throw MCPError(code: -32602, message: "set_value requires element_index and value")
+                        let value = args["value"] as? String
+                    else {
+                        throw MCPError(
+                            code: -32602, message: "set_value requires element_index and value")
                     }
                     try Tools.setValue(index: index, value: value)
                     return ["content": [["type": "text", "text": "ok"]]]
@@ -173,14 +195,17 @@ enum ToolRegistry {
             ),
             Tool(
                 name: "scroll",
-                description: "Scroll in a direction. If element_index is given, scroll while pointing at that element.",
+                description:
+                    "Scroll in a direction. If element_index is given, scroll while pointing at that element.",
                 schema: [
                     "name": "scroll",
                     "description": "Scroll in a direction.",
                     "inputSchema": [
                         "type": "object",
                         "properties": [
-                            "direction": ["type": "string", "enum": ["up", "down", "left", "right"]],
+                            "direction": [
+                                "type": "string", "enum": ["up", "down", "left", "right"],
+                            ],
                             "pages": ["type": "integer"],
                             "element_index": ["type": "integer"],
                             "app": ["type": "string"],
@@ -193,9 +218,13 @@ enum ToolRegistry {
                     guard let dir = args["direction"] as? String else {
                         throw MCPError(code: -32602, message: "Missing scroll direction")
                     }
-                    let pages = (args["pages"] as? Int) ?? (args["pages"] as? NSNumber)?.intValue ?? 1
-                    let idx = (args["element_index"] as? Int) ?? (args["element_index"] as? NSNumber)?.intValue
-                    try Tools.scroll(direction: dir, pages: pages, index: idx, app: args["app"] as? String)
+                    let pages =
+                        (args["pages"] as? Int) ?? (args["pages"] as? NSNumber)?.intValue ?? 1
+                    let idx =
+                        (args["element_index"] as? Int)
+                        ?? (args["element_index"] as? NSNumber)?.intValue
+                    try Tools.scroll(
+                        direction: dir, pages: pages, index: idx, app: args["app"] as? String)
                     return ["content": [["type": "text", "text": "ok"]]]
                 }
             ),
@@ -223,8 +252,11 @@ enum ToolRegistry {
                         if let i = args[k] as? Int { return CGFloat(i) }
                         return nil
                     }
-                    guard let fx = num("from_x"), let fy = num("from_y"), let tx = num("to_x"), let ty = num("to_y") else {
-                        throw MCPError(code: -32602, message: "drag requires from_x, from_y, to_x, to_y")
+                    guard let fx = num("from_x"), let fy = num("from_y"), let tx = num("to_x"),
+                        let ty = num("to_y")
+                    else {
+                        throw MCPError(
+                            code: -32602, message: "drag requires from_x, from_y, to_x, to_y")
                     }
                     try Tools.drag(fromX: fx, fromY: fy, toX: tx, toY: ty)
                     return ["content": [["type": "text", "text": "ok"]]]
@@ -232,14 +264,20 @@ enum ToolRegistry {
             ),
             Tool(
                 name: "get_app_state",
-                description: "Activate the target app and return its accessibility tree with numbered element indices. Call this first each turn before any other tool.",
+                description:
+                    "Activate the target app and return its accessibility tree with numbered element indices. Call this first each turn before any other tool.",
                 schema: [
                     "name": "get_app_state",
-                    "description": "Activate the target app and return its accessibility tree with numbered element indices.",
+                    "description":
+                        "Activate the target app and return its accessibility tree with numbered element indices.",
                     "inputSchema": [
                         "type": "object",
                         "properties": [
-                            "app": ["type": "string", "description": "Bundle identifier (preferred) or localized app name."]
+                            "app": [
+                                "type": "string",
+                                "description":
+                                    "Bundle identifier (preferred) or localized app name.",
+                            ]
                         ] as [String: Any],
                         "required": ["app"],
                         "additionalProperties": false,
@@ -280,7 +318,8 @@ final class MCPServer {
             let line = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             if line.isEmpty { continue }
             guard let data = line.data(using: .utf8),
-                  let msg = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                let msg = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+            else {
                 continue
             }
             handle(message: msg, stdout: stdout)
@@ -290,7 +329,9 @@ final class MCPServer {
     private func handle(message: [String: Any], stdout: FileHandle) {
         let id = message["id"]
         guard let method = message["method"] as? String else {
-            if let id = id { writeError(to: stdout, id: id, code: -32600, message: "Missing method") }
+            if let id = id {
+                writeError(to: stdout, id: id, code: -32600, message: "Missing method")
+            }
             return
         }
         let params = message["params"] as? [String: Any] ?? [:]
@@ -304,19 +345,23 @@ final class MCPServer {
             writeResponse(to: stdout, id: id!, result: result)
         } catch let err as MCPError {
             if method == "tools/call" {
-                writeResponse(to: stdout, id: id!, result: [
-                    "content": [["type": "text", "text": err.message]],
-                    "isError": true,
-                ])
+                writeResponse(
+                    to: stdout, id: id!,
+                    result: [
+                        "content": [["type": "text", "text": err.message]],
+                        "isError": true,
+                    ])
             } else {
                 writeError(to: stdout, id: id!, code: err.code, message: err.message)
             }
         } catch {
             if method == "tools/call" {
-                writeResponse(to: stdout, id: id!, result: [
-                    "content": [["type": "text", "text": "Internal error: \(error)"]],
-                    "isError": true,
-                ])
+                writeResponse(
+                    to: stdout, id: id!,
+                    result: [
+                        "content": [["type": "text", "text": "Internal error: \(error)"]],
+                        "isError": true,
+                    ])
             } else {
                 writeError(to: stdout, id: id!, code: -32603, message: "Internal error: \(error)")
             }
@@ -353,7 +398,9 @@ final class MCPServer {
 
     private func initialize(params: [String: Any]) -> [String: Any] {
         let requested = params["protocolVersion"] as? String
-        let version = (requested != nil && supportedProtocols.contains(requested!)) ? requested! : supportedProtocols[0]
+        let version =
+            (requested != nil && supportedProtocols.contains(requested!))
+            ? requested! : supportedProtocols[0]
         return [
             "protocolVersion": version,
             "capabilities": [
@@ -362,7 +409,8 @@ final class MCPServer {
                 "prompts": ["listChanged": false],
             ],
             "serverInfo": serverInfo,
-            "instructions": "Native macOS Computer Use MCP server. Call get_app_state first each turn, then act on returned element indices.",
+            "instructions":
+                "Native macOS Computer Use MCP server. Call get_app_state first each turn, then act on returned element indices.",
         ]
     }
 
@@ -381,7 +429,9 @@ final class MCPServer {
     }
 
     private func write(payload: [String: Any], to stdout: FileHandle) {
-        guard let data = try? JSONSerialization.data(withJSONObject: payload, options: []) else { return }
+        guard let data = try? JSONSerialization.data(withJSONObject: payload, options: []) else {
+            return
+        }
         stdout.write(data)
         stdout.write(Data([0x0A]))
     }
@@ -391,4 +441,3 @@ struct MCPError: Error {
     let code: Int
     let message: String
 }
-
