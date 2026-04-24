@@ -6,9 +6,11 @@ Background computer-use implementation — current state.
 
     make eval     # builds + runs .build/release/cua-mcp eval
 
-Most recent run: **17 pass · 0 fail · 2 skip** across 19 cases.
-Reproducible across consecutive runs. The two skips are external
-config, not implementation gaps:
+Most recent run: **18 pass · 0 fail · 2 skip** across 20 cases.
+Reproducible across three consecutive runs. Passes include a 100×
+clickElement stress bench that reports 10.5 ms/call end-to-end with
+no focus steals. The two skips are external config, not
+implementation gaps:
 
 | skip                        | cause                                                            |
 |-----------------------------|------------------------------------------------------------------|
