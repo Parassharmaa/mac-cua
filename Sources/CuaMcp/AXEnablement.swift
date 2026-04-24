@@ -57,85 +57,34 @@ final class AXEnablement {
     }
 }
 
-/// Snapshot + restore the user's frontmost app around a tool call.
-/// Used only as a fallback when the reactive `SystemFocusStealPreventer`
-/// observer misses an activation. Accepts a brief flicker — if you see
-/// it, the preventer should have caught this case and didn't.
-///
-/// Usage:
-/// ```
-/// let guard = FocusGuard.snapshot()
-/// // ...post events to target pid...
-/// guard.restore()
-/// ```
-struct FocusGuard {
-    let originalPid: pid_t?
-    let targetPid: pid_t
-
-    static func snapshot(targetPid: pid_t) -> FocusGuard {
-        let orig = NSWorkspace.shared.frontmostApplication?.processIdentifier
-        return FocusGuard(originalPid: orig, targetPid: targetPid)
-    }
-
-    /// Reclaim focus for the user's original app. Chrome/Electron apps
-    /// activate *asynchronously* after receiving events — the activation
-    /// often hasn't fired yet when `restore()` is called, so a single
-    /// check-then-reactivate races. Instead we poll for up to `window`
-    /// seconds and force the original app frontmost any time it isn't.
-    func restore(window: TimeInterval = 0.6) {
-        guard let originalPid, originalPid != targetPid else { return }
-        guard let original = NSRunningApplication(processIdentifier: originalPid) else { return }
-        let deadline = Date().addingTimeInterval(window)
-        var restored = false
-        while Date() < deadline {
-            let now = NSWorkspace.shared.frontmostApplication?.processIdentifier
-            if now != originalPid {
-                original.activate(options: [.activateIgnoringOtherApps])
-                restored = true
-                // Give the activation a beat to take, then check again —
-                // Chrome can fire a *second* activation on focus-loss.
-                Thread.sleep(forTimeInterval: 0.06)
-            } else if restored {
-                // We've seen the original frontmost *after* restoring; safe
-                // to exit early — if the target tries again, the next tool
-                // call's guard will handle it.
-                return
-            } else {
-                // Focus never shifted off the original — nothing to do.
-                return
-            }
-        }
-    }
-}
-
-private func skyFocusDebug(_ msg: String) {
-    if ProcessInfo.processInfo.environment["CUA_FOCUS_DEBUG"] != nil {
-        FileHandle.standardError.write("[skyfocus] \(msg)\n".data(using: .utf8)!)
-    }
-}
-
-/// "Act on background app" setup — three-layer focus suppression:
+/// "Act on background app" setup — layered focus suppression:
 ///
 ///   Layer 1 — **AX enablement**: `AXManualAccessibility` /
 ///             `AXEnhancedUserInterface` on the target root element, so
 ///             Chromium/Electron build a full AX tree and respect AX
-///             attribute writes. Cached per-pid via `AXEnablement`.
+///             attribute writes. Re-asserted every snapshot for
+///             Chromium (they reset the flag on backgrounding), cached
+///             for native AppKit apps. Handled via `AXEnablement`.
 ///
-///   Layer 3 — **Reactive** (`SystemFocusStealPreventer`): install an
-///             `NSWorkspace.didActivateApplicationNotification` observer
-///             that, if the target self-activates in response to our
-///             synthetic event, immediately restores the user's previous
-///             frontmost app on the same runloop turn. This is the crucial
-///             piece that eliminates the visible focus flicker when the
-///             target app decides to call `NSApp.activate` internally.
+///   Layer 2 — **Synthetic AX focus** (`AXFocusSuppression`): writes
+///             `AXFocused`/`AXMain` on the target's window and element
+///             just before an AX action fires, restores the prior
+///             values after. Tells the target's internal state machine
+///             "these components have focus" so it processes the
+///             action as if the user had focused them first.
 ///
-///   Layer 3.5 — **Polling fallback** (`FocusGuard`): kept as a safety net
-///               for systems where `SystemFocusStealPreventer` misses the
-///               activation (e.g., notification coalescing races). Polls
-///               for `window` seconds and snaps the user's app back.
+///   Layer 3 — **Reactive preventer** (`SystemFocusStealPreventer`):
+///             installs an `NSWorkspace.didActivateApplicationNotification`
+///             observer. If the target self-activates in response to
+///             our event, synchronously restores the user's previous
+///             frontmost on the same runloop turn. The observer stays
+///             armed for 3s past tool return so late self-activations
+///             (document-open animations, renderer round-trips) also
+///             land inside the suppression window.
 ///
-/// Layer 2 (write AXFocused/AXMain on window+element) is applied by AX
-/// action callers, not this helper — see `Tools.withAXFocusSuppressed`.
+/// Layer 2 is applied by AX action callers (`clickElement`,
+/// `performSecondaryAction`, `setValue`) around the AX dispatch; layers
+/// 1 and 3 are handled by `BackgroundFocus.activate`.
 ///
 /// Usage:
 /// ```

@@ -240,7 +240,9 @@ private func lookupElement(_ index: Int) throws -> AXUIElement {
 }
 
 /// Best-effort pid for an AXUIElement. Returns 0 if we can't resolve — the
-/// FocusGuard will still fire but its target-vs-current check is lenient.
+/// The BackgroundFocus preventer does not require a real pid to function;
+/// a zero pid simply means "no target to watch" and the preventer is a
+/// no-op. Callers get the AX focus writes regardless.
 private func pidOfElement(_ element: AXUIElement) -> pid_t {
     var pid: pid_t = 0
     AXUIElementGetPid(element, &pid)
