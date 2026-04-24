@@ -324,6 +324,50 @@ enum ToolRegistry {
                 }
             ),
             Tool(
+                name: "get_clipboard",
+                description:
+                    "Return the current plain-text contents of the system pasteboard. Useful for agents that coordinate via the clipboard (e.g. Shortcuts, inter-app text transfer).",
+                schema: [
+                    "name": "get_clipboard",
+                    "description": "Return the current plain-text clipboard contents.",
+                    "inputSchema": [
+                        "type": "object",
+                        "properties": [:] as [String: Any],
+                        "additionalProperties": false,
+                    ],
+                ],
+                handler: { _ in
+                    let text = Tools.getClipboard()
+                    return ["content": [["type": "text", "text": text]]]
+                }
+            ),
+            Tool(
+                name: "set_clipboard",
+                description:
+                    "Replace the system pasteboard's plain-text contents with the given string. Returns 'ok' on success.",
+                schema: [
+                    "name": "set_clipboard",
+                    "description": "Set the system pasteboard to the given string.",
+                    "inputSchema": [
+                        "type": "object",
+                        "properties": [
+                            "text": ["type": "string"]
+                        ] as [String: Any],
+                        "required": ["text"],
+                        "additionalProperties": false,
+                    ],
+                ],
+                handler: { args in
+                    guard let text = args["text"] as? String else {
+                        throw MCPError(code: -32602, message: "set_clipboard requires 'text'")
+                    }
+                    let ok = Tools.setClipboard(text)
+                    return [
+                        "content": [["type": "text", "text": ok ? "ok" : "pasteboard write failed"]]
+                    ]
+                }
+            ),
+            Tool(
                 name: "get_permissions",
                 description:
                     "Report which macOS TCC permissions this server currently holds. Lets clients surface actionable setup steps to the user if anything is missing.",
