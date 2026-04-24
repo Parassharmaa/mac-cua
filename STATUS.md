@@ -6,9 +6,9 @@ Background computer-use implementation — current state.
 
     make eval     # builds + runs .build/release/cua-mcp eval
 
-Most recent run: **14 pass · 0 fail · 2 skip**. Reproducible across
-three consecutive runs. The two skips are external config, not
-implementation gaps:
+Most recent run: **17 pass · 0 fail · 2 skip** across 19 cases.
+Reproducible across consecutive runs. The two skips are external
+config, not implementation gaps:
 
 | skip                        | cause                                                            |
 |-----------------------------|------------------------------------------------------------------|
@@ -46,6 +46,12 @@ implementation gaps:
 - Polling `FocusGuard` from the hot path — reactive preventer now
   handles the steal-catch. The struct stays in the source for
   reference but is no longer wired into `BackgroundFocus`.
+
+## End-to-end MCP stdio
+
+Verified: `.build/release/cua-mcp` accepts newline-delimited JSON-RPC
+over stdin and emits replies on stdout. Handshake, `tools/list`, and
+`tools/call list_apps` all return well-formed results.
 
 ## Contracts verified by the eval
 
