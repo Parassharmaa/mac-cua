@@ -38,6 +38,7 @@ enum EvalRunner {
             ("bg_calc_double_click",      case_bg_calc_double_click),
             ("bg_drag_no_steal",          case_bg_drag_no_steal),
             ("bg_key_combo_cmd_a",        case_bg_key_combo_cmd_a),
+            ("perf_100x_click",           case_perf_100x_click),
         ]
         for (label, fn) in cases {
             let t0 = Date()
@@ -626,6 +627,43 @@ enum EvalRunner {
         return measureNoSteal(textEditBundle) {
             do { try Tools.pressKey("cmd+a", app: textEditBundle) } catch { }
         }
+    }
+
+    /// Micro-benchmark: 100 consecutive clickElement calls on Calculator's
+    /// "Clear" button. Verifies stability under load (no AX element
+    /// invalidation between calls if the tree is static) and reports per-
+    /// call latency as a sanity stat. Fails if any call throws or any call
+    /// causes a steal — the preventer has to stay responsive under rapid
+    /// repeat invocation.
+    private static func case_perf_100x_click() -> (Status, String) {
+        guard ensureRunning(calcBundle) else { return (.skip, "Calculator unavailable") }
+        guard let text = axTreeText(calcBundle) else { return (.fail, "no tree") }
+        let idx = parseIndices(text) { $0.contains("button") && $0.contains("clear") }.first
+        guard let idx else { return (.skip, "no Clear button") }
+        let before = frontmost()
+        var stoleAt = -1
+        let t0 = Date()
+        var failures = 0
+        for i in 0..<100 {
+            do { try Tools.clickElement(index: idx) }
+            catch { failures += 1 }
+            if i % 10 == 9 {
+                // Sparse steal-check — checking every iteration slows the
+                // bench with NSWorkspace calls.
+                if frontmost() == calcBundle && before != calcBundle {
+                    stoleAt = i
+                    break
+                }
+            }
+        }
+        let dt = Date().timeIntervalSince(t0)
+        let perCall = dt / 100.0
+        let after = frontmost()
+        let stole = before != calcBundle && after == calcBundle
+        let ok = failures == 0 && !stole && stoleAt == -1
+        return (ok ? .pass : .fail,
+                String(format: "100×click in %.2fs (%.1fms/call) failures=%d stole=%@ stoleAt=%d",
+                       dt, perCall * 1000, failures, stole ? "true" : "false", stoleAt))
     }
 
     private static func case_chrome_tree_fresh() -> (Status, String) {
