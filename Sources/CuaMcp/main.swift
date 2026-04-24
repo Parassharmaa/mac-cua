@@ -103,26 +103,41 @@ case "eval", "eval-json":
     exit(code)
 
 case "cursor-demo":
+    // Exercises the full cursor feature surface so users can verify the
+    // overlay works before wiring it into an agent: a long sweep to each
+    // corner (shows heading rotation), short hops (different motion
+    // profile), double-click (back-to-back pulse + ring), a pause that
+    // lets the 2s idle fade trigger, then a final center click.
     let app = NSApplication.shared
     app.setActivationPolicy(.accessory)
     DispatchQueue.global().async {
         Thread.sleep(forTimeInterval: 0.2)
         let screen = NSScreen.screens.first!.frame
-        let points: [CGPoint] = [
-            CGPoint(x: screen.width * 0.1, y: screen.height * 0.1),
-            CGPoint(x: screen.width * 0.9, y: screen.height * 0.1),
-            CGPoint(x: screen.width * 0.9, y: screen.height * 0.9),
-            CGPoint(x: screen.width * 0.1, y: screen.height * 0.9),
-            CGPoint(x: screen.width * 0.5, y: screen.height * 0.5),
-        ]
-        for p in points {
+        func sweep(_ p: CGPoint, dur: TimeInterval, clickCount: Int = 1) {
             let sem = DispatchSemaphore(value: 0)
             DispatchQueue.main.async {
-                VirtualCursor.shared.animate(to: p, duration: 0.6) { sem.signal() }
+                VirtualCursor.shared.animate(to: p, duration: dur) { sem.signal() }
             }
-            _ = sem.wait(timeout: .now() + 2)
+            _ = sem.wait(timeout: .now() + dur + 2)
+            for _ in 0..<clickCount {
+                DispatchQueue.main.async { VirtualCursor.shared.pulse() }
+                Thread.sleep(forTimeInterval: 0.12)
+            }
             Thread.sleep(forTimeInterval: 0.3)
         }
+        // Long diagonal sweeps — showcases heading rotation along arc.
+        sweep(CGPoint(x: screen.width * 0.1, y: screen.height * 0.15), dur: 0.6)
+        sweep(CGPoint(x: screen.width * 0.9, y: screen.height * 0.15), dur: 0.7)
+        sweep(CGPoint(x: screen.width * 0.9, y: screen.height * 0.85), dur: 0.7)
+        sweep(CGPoint(x: screen.width * 0.1, y: screen.height * 0.85), dur: 0.7)
+        // Short hops — no arc, linear with overshoot.
+        sweep(CGPoint(x: screen.width * 0.2, y: screen.height * 0.85), dur: 0.3)
+        sweep(CGPoint(x: screen.width * 0.3, y: screen.height * 0.85), dur: 0.3)
+        // Double click — two rings at same spot.
+        sweep(CGPoint(x: screen.width * 0.5, y: screen.height * 0.5), dur: 0.5, clickCount: 2)
+        // Let the 2s idle fade trigger, then revive.
+        Thread.sleep(forTimeInterval: 2.5)
+        sweep(CGPoint(x: screen.width * 0.5, y: screen.height * 0.4), dur: 0.4)
         DispatchQueue.main.async { NSApplication.shared.terminate(nil) }
     }
     app.run()
