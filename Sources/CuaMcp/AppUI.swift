@@ -41,14 +41,18 @@ final class AppUI: NSObject, NSApplicationDelegate {
         }
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
-            button.title = "●"
+            // SF Symbol — `cursorarrow.click.2` reads as an agent cursor,
+            // automatically respects menubar tint and dark/light mode. The
+            // per-permission status tints a small overlay circle when
+            // something is wrong.
+            button.image = NSImage(systemSymbolName: "cursorarrow.click.2", accessibilityDescription: "cua-mcp")
             button.toolTip = "mac-cua MCP server"
             button.action = #selector(togglePopover(_:))
             button.target = self
         }
-        hostingView = PermissionsView(frame: NSRect(x: 0, y: 0, width: 360, height: 320))
+        hostingView = PermissionsView(frame: NSRect(x: 0, y: 0, width: 380, height: 380))
         popover = NSPopover()
-        popover.contentSize = NSSize(width: 360, height: 320)
+        popover.contentSize = NSSize(width: 380, height: 380)
         popover.behavior = .transient
         popover.contentViewController = NSViewController()
         popover.contentViewController?.view = hostingView
@@ -72,24 +76,23 @@ final class AppUI: NSObject, NSApplicationDelegate {
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
     }
 
-    /// Tint the menu-bar dot based on whether we have the permissions we
-    /// need: green when both AX and Screen Recording are granted, yellow
-    /// when one is missing, red when both are missing.
+    /// Tint menu-bar symbol by permission state. Uses SF Symbol contentTint
+    /// so the icon adapts to light/dark menubars automatically.
     private func refreshBadge() {
         let ax = Permissions.axTrusted()
         let sr = Permissions.screenRecordingGranted()
         guard let button = statusItem.button else { return }
-        let color: NSColor
         switch (ax, sr) {
-        case (true, true): color = .systemGreen
-        case (false, false): color = .systemRed
-        default: color = .systemYellow
+        case (true, true):
+            button.image = NSImage(systemSymbolName: "cursorarrow.click.2", accessibilityDescription: "Ready")
+            button.contentTintColor = nil
+        case (false, false):
+            button.image = NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: "Needs both permissions")
+            button.contentTintColor = .systemRed
+        default:
+            button.image = NSImage(systemSymbolName: "cursorarrow.click.2.fill", accessibilityDescription: "Needs one permission")
+            button.contentTintColor = .systemYellow
         }
-        let attr = NSAttributedString(
-            string: "●",
-            attributes: [.foregroundColor: color, .font: NSFont.systemFont(ofSize: 14)]
-        )
-        button.attributedTitle = attr
     }
 }
 
@@ -106,6 +109,7 @@ final class PermissionsView: NSView {
     )
     private let statusLabel = NSTextField(labelWithString: "")
     private let copyButton = NSButton(title: "Copy MCP config", target: nil, action: nil)
+    private let demoButton = NSButton(title: "Cursor demo", target: nil, action: nil)
     private let quitButton = NSButton(title: "Quit", target: nil, action: nil)
 
     override init(frame frameRect: NSRect) {
@@ -133,16 +137,16 @@ final class PermissionsView: NSView {
     private func setup() {
         let title = NSTextField(labelWithString: "mac-cua MCP server")
         title.font = NSFont.boldSystemFont(ofSize: 14)
-        title.frame = NSRect(x: 16, y: 288, width: 328, height: 20)
+        title.frame = NSRect(x: 16, y: 346, width: 348, height: 20)
         addSubview(title)
 
         let subtitle = NSTextField(labelWithString: "Native macOS Computer Use for MCP clients.")
         subtitle.font = NSFont.systemFont(ofSize: 11)
         subtitle.textColor = .secondaryLabelColor
-        subtitle.frame = NSRect(x: 16, y: 270, width: 328, height: 16)
+        subtitle.frame = NSRect(x: 16, y: 328, width: 348, height: 16)
         addSubview(subtitle)
 
-        axRow.frame = NSRect(x: 16, y: 180, width: 328, height: 78)
+        axRow.frame = NSRect(x: 16, y: 238, width: 348, height: 78)
         axRow.onGrant = { [weak self] in
             if !Permissions.axTrusted(prompt: true) {
                 // prompt:true both prompts and opens System Settings the
@@ -153,7 +157,7 @@ final class PermissionsView: NSView {
         }
         addSubview(axRow)
 
-        srRow.frame = NSRect(x: 16, y: 96, width: 328, height: 78)
+        srRow.frame = NSRect(x: 16, y: 154, width: 348, height: 78)
         srRow.onGrant = { [weak self] in
             if !Permissions.requestScreenRecording() {
                 openSystemSettings(path: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
@@ -164,23 +168,73 @@ final class PermissionsView: NSView {
 
         statusLabel.font = NSFont.systemFont(ofSize: 11)
         statusLabel.textColor = .secondaryLabelColor
-        statusLabel.frame = NSRect(x: 16, y: 60, width: 328, height: 28)
-        statusLabel.maximumNumberOfLines = 2
+        statusLabel.frame = NSRect(x: 16, y: 108, width: 348, height: 38)
+        statusLabel.maximumNumberOfLines = 3
         addSubview(statusLabel)
 
-        copyButton.frame = NSRect(x: 16, y: 12, width: 180, height: 28)
+        let configPath = Bundle.main.executablePath ?? "/usr/local/bin/cua-mcp"
+        let pathLabel = NSTextField(labelWithString: configPath)
+        pathLabel.font = NSFont.monospacedSystemFont(ofSize: 10, weight: .regular)
+        pathLabel.textColor = .tertiaryLabelColor
+        pathLabel.frame = NSRect(x: 16, y: 86, width: 348, height: 18)
+        pathLabel.lineBreakMode = .byTruncatingMiddle
+        pathLabel.isSelectable = true
+        addSubview(pathLabel)
+
+        copyButton.frame = NSRect(x: 16, y: 44, width: 160, height: 28)
         copyButton.target = self
         copyButton.action = #selector(copyConfig)
         copyButton.bezelStyle = .rounded
         addSubview(copyButton)
 
-        quitButton.frame = NSRect(x: 252, y: 12, width: 92, height: 28)
+        demoButton.frame = NSRect(x: 184, y: 44, width: 90, height: 28)
+        demoButton.target = self
+        demoButton.action = #selector(runDemo)
+        demoButton.bezelStyle = .rounded
+        addSubview(demoButton)
+
+        quitButton.frame = NSRect(x: 282, y: 44, width: 82, height: 28)
         quitButton.target = NSApp
         quitButton.action = #selector(NSApplication.terminate(_:))
         quitButton.bezelStyle = .rounded
         addSubview(quitButton)
 
+        // Hint line beneath the buttons.
+        let hint = NSTextField(labelWithString: "Cursor demo sweeps the agent cursor across the screen so you can see the motion + click pulse.")
+        hint.font = NSFont.systemFont(ofSize: 10)
+        hint.textColor = .tertiaryLabelColor
+        hint.maximumNumberOfLines = 2
+        hint.lineBreakMode = .byWordWrapping
+        hint.frame = NSRect(x: 16, y: 4, width: 348, height: 32)
+        addSubview(hint)
+
         refresh()
+    }
+
+    @objc private func runDemo() {
+        // Sweep the agent cursor through four corners + center so the user
+        // can see what the overlay looks like before any tool invocation.
+        guard let screen = NSScreen.main?.frame else { return }
+        let points: [CGPoint] = [
+            CGPoint(x: screen.width * 0.15, y: screen.height * 0.15),
+            CGPoint(x: screen.width * 0.85, y: screen.height * 0.15),
+            CGPoint(x: screen.width * 0.85, y: screen.height * 0.85),
+            CGPoint(x: screen.width * 0.15, y: screen.height * 0.85),
+            CGPoint(x: screen.width * 0.50, y: screen.height * 0.50),
+        ]
+        DispatchQueue.global().async {
+            for p in points {
+                let sem = DispatchSemaphore(value: 0)
+                DispatchQueue.main.async {
+                    VirtualCursor.shared.animate(to: p, duration: 0.5) {
+                        VirtualCursor.shared.pulse()
+                        sem.signal()
+                    }
+                }
+                _ = sem.wait(timeout: .now() + 1.5)
+                Thread.sleep(forTimeInterval: 0.25)
+            }
+        }
     }
 
     func refresh() {
