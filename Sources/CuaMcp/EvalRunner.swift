@@ -39,6 +39,7 @@ enum EvalRunner {
             ("bg_drag_no_steal", case_bg_drag_no_steal),
             ("bg_key_combo_cmd_a", case_bg_key_combo_cmd_a),
             ("perf_100x_click", case_perf_100x_click),
+            ("clipboard_roundtrip", case_clipboard_roundtrip),
         ]
         let effective = skipPerf ? cases.filter { $0.0 != "perf_100x_click" } : cases
         for (label, fn) in effective {
@@ -731,6 +732,23 @@ enum EvalRunner {
         return measureNoSteal(textEditBundle) {
             do { try Tools.pressKey("cmd+a", app: textEditBundle) } catch {}
         }
+    }
+
+    /// Round-trip: set_clipboard → get_clipboard → compare. Proves the
+    /// pasteboard path is live in-process (no sandbox block, no stale
+    /// clearContents). Preserves the user's prior clipboard contents
+    /// (restores on exit) so running the eval doesn't clobber whatever
+    /// they had copied.
+    private static func case_clipboard_roundtrip() -> (Status, String) {
+        let prior = Tools.getClipboard()
+        defer { _ = Tools.setClipboard(prior) }
+        let marker = "cua-mcp-eval-\(Int(Date().timeIntervalSince1970 * 1000))"
+        guard Tools.setClipboard(marker) else {
+            return (.fail, "setClipboard returned false")
+        }
+        Thread.sleep(forTimeInterval: 0.05)
+        let read = Tools.getClipboard()
+        return (read == marker ? .pass : .fail, "marker='\(marker)' read='\(read)'")
     }
 
     /// Micro-benchmark: 100 consecutive clickElement calls on Calculator's
