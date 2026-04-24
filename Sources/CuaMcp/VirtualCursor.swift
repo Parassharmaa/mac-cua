@@ -366,8 +366,11 @@ final class CursorContentView: NSView {
         CATransaction.commit()
     }
 
-    /// Quick radial pop when a click fires under the cursor.
+    /// Click feedback: bloom pulse + expanding ring emanating from the tip.
+    /// The ring reads instantly as "a click just landed" even on static
+    /// screenshots, distinguishing it from the cursor's motion animation.
     func pulse() {
+        // Bloom pop — scales the halo briefly.
         let scale = CABasicAnimation(keyPath: "transform.scale")
         scale.fromValue = 1.0
         scale.toValue = 1.35
@@ -382,6 +385,49 @@ final class CursorContentView: NSView {
         opacity.duration = 0.12
         opacity.autoreverses = true
         bloomLayer.add(opacity, forKey: "pulseOpacity")
+
+        // Click ring — a transient shape layer that starts at tip radius
+        // and expands outward while fading. Lives for the duration of
+        // one animation then removes itself.
+        let ring = CAShapeLayer()
+        let tipPoint = CGPoint(x: bounds.midX, y: bounds.midY)
+        let startRadius: CGFloat = 6
+        let endRadius: CGFloat = 28
+        ring.frame = bounds
+        ring.fillColor = nil
+        ring.strokeColor = NSColor(
+            calibratedRed: 0.70, green: 0.55, blue: 1.0, alpha: 0.9
+        ).cgColor
+        ring.lineWidth = 2
+        ring.path = CGPath(
+            ellipseIn: CGRect(
+                x: tipPoint.x - startRadius, y: tipPoint.y - startRadius,
+                width: startRadius * 2, height: startRadius * 2),
+            transform: nil)
+        layer?.addSublayer(ring)
+
+        let ringPath = CABasicAnimation(keyPath: "path")
+        ringPath.fromValue = ring.path
+        ringPath.toValue = CGPath(
+            ellipseIn: CGRect(
+                x: tipPoint.x - endRadius, y: tipPoint.y - endRadius,
+                width: endRadius * 2, height: endRadius * 2),
+            transform: nil)
+        ringPath.duration = 0.35
+        ringPath.timingFunction = CAMediaTimingFunction(name: .easeOut)
+
+        let ringFade = CABasicAnimation(keyPath: "opacity")
+        ringFade.fromValue = 0.9
+        ringFade.toValue = 0.0
+        ringFade.duration = 0.35
+        ringFade.timingFunction = CAMediaTimingFunction(name: .easeOut)
+
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { ring.removeFromSuperlayer() }
+        ring.add(ringPath, forKey: "ringPath")
+        ring.add(ringFade, forKey: "ringFade")
+        ring.opacity = 0
+        CATransaction.commit()
     }
 
     /// Figma-style multiplayer cursor path. Tip points to upper-left (top-left
