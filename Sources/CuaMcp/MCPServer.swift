@@ -296,6 +296,37 @@ enum ToolRegistry {
                     return ["content": content]
                 }
             ),
+            Tool(
+                name: "get_permissions",
+                description:
+                    "Report which macOS TCC permissions this server currently holds. Lets clients surface actionable setup steps to the user if anything is missing.",
+                schema: [
+                    "name": "get_permissions",
+                    "description":
+                        "Report current AX + Screen Recording TCC grant state.",
+                    "inputSchema": [
+                        "type": "object",
+                        "properties": [:] as [String: Any],
+                        "additionalProperties": false,
+                    ],
+                ],
+                handler: { _ in
+                    let ax = Permissions.axTrusted()
+                    let sr = Permissions.screenRecordingGranted()
+                    let status: String
+                    switch (ax, sr) {
+                    case (true, true):
+                        status = "All required TCC permissions granted. Server is fully operational."
+                    case (true, false):
+                        status = "Accessibility granted; Screen Recording NOT granted. Element actions work; get_app_state screenshots will be blank. Grant in System Settings → Privacy & Security → Screen Recording."
+                    case (false, true):
+                        status = "Screen Recording granted; Accessibility NOT granted. No tools will work. Grant in System Settings → Privacy & Security → Accessibility."
+                    case (false, false):
+                        status = "Neither Accessibility nor Screen Recording granted. No tools will work. Grant both in System Settings → Privacy & Security."
+                    }
+                    return ["content": [["type": "text", "text": status]]]
+                }
+            ),
         ]
     }
 
