@@ -17,6 +17,12 @@ final class VirtualCursor {
     private var panel: NSPanel?
     private var contentView: CursorContentView?
     private let cursorSize = NSSize(width: 56, height: 56)
+    /// Auto-hide after this many seconds of no `animate`/`pulse` calls.
+    /// Prevents the overlay from lingering at the last click site after
+    /// the agent finishes a turn — invisible by default once the session
+    /// is idle.
+    private static let idleHideDelay: TimeInterval = 2.0
+    private var idleHideTimer: Timer?
     private static let enabled: Bool = {
         return ProcessInfo.processInfo.environment["CUA_HIDE_CURSOR"] != "1"
     }()
@@ -105,9 +111,10 @@ final class VirtualCursor {
                     ctx.allowsImplicitAnimation = true
                     panel.animator().setFrameOrigin(destOrigin)
                 },
-                completionHandler: {
+                completionHandler: { [weak self] in
                     view.setMoving(false)
                     completion?()
+                    self?.scheduleIdleHide()
                 })
             return
         }
@@ -160,6 +167,7 @@ final class VirtualCursor {
                     t.invalidate()
                     view.setMoving(false)
                     completion?()
+                    self.scheduleIdleHide()
                     return
                 }
                 // Damped oscillator: x = 1 - e^(-3.5·s)·cos(π·s/2).
@@ -176,6 +184,27 @@ final class VirtualCursor {
     func pulse() {
         guard Self.enabled else { return }
         contentView?.pulse()
+        scheduleIdleHide()
+    }
+
+    /// Reset the auto-hide timer. Called from `animate` completion and
+    /// `pulse` so the cursor stays visible while there's activity, then
+    /// fades out `idleHideDelay` seconds after the last event.
+    private func scheduleIdleHide() {
+        idleHideTimer?.invalidate()
+        idleHideTimer = Timer.scheduledTimer(
+            withTimeInterval: Self.idleHideDelay, repeats: false
+        ) { [weak self] _ in
+            DispatchQueue.main.async { self?.fadeOut() }
+        }
+        if let t = idleHideTimer { RunLoop.main.add(t, forMode: .common) }
+    }
+
+    private func fadeOut() {
+        guard let panel = panel, let view = contentView, panel.isVisible else { return }
+        view.beginFadeOut { [weak panel] in
+            panel?.orderOut(nil)
+        }
     }
 
     func hide() {
@@ -304,6 +333,18 @@ final class CursorContentView: NSView {
         CATransaction.setAnimationDuration(0.25)
         bloomLayer.opacity = 0.55
         arrowContainer.opacity = 1
+        CATransaction.commit()
+    }
+
+    /// Fade both layers to zero over 350ms and invoke `completion` once
+    /// the fade lands. Caller typically orders the panel out in the
+    /// completion block so the fade is visible.
+    func beginFadeOut(completion: @escaping () -> Void) {
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(0.35)
+        CATransaction.setCompletionBlock(completion)
+        bloomLayer.opacity = 0
+        arrowContainer.opacity = 0
         CATransaction.commit()
     }
 
