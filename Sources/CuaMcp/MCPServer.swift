@@ -306,7 +306,9 @@ enum ToolRegistry {
                         content.append(["type": "text", "text": text])
                     }
                     if mode == "vision" || mode == "som" {
-                        if let png = Screenshot.captureAppWindowPNG(pid: runningApp.processIdentifier) {
+                        if let png = Screenshot.captureAppWindowPNG(
+                            pid: runningApp.processIdentifier)
+                        {
                             content.append(["type": "image", "mimeType": "image/png", "data": png])
                         } else if mode == "vision" {
                             // Vision mode with no screenshot is useless — surface
@@ -314,7 +316,8 @@ enum ToolRegistry {
                             throw MCPError(
                                 code: -32000,
                                 message:
-                                    "capture_mode=vision requested but Screen Recording permission appears to be missing. Call get_permissions to confirm.")
+                                    "capture_mode=vision requested but Screen Recording permission appears to be missing. Call get_permissions to confirm."
+                            )
                         }
                     }
                     return ["content": content]
@@ -340,13 +343,17 @@ enum ToolRegistry {
                     let status: String
                     switch (ax, sr) {
                     case (true, true):
-                        status = "All required TCC permissions granted. Server is fully operational."
+                        status =
+                            "All required TCC permissions granted. Server is fully operational."
                     case (true, false):
-                        status = "Accessibility granted; Screen Recording NOT granted. Element actions work; get_app_state screenshots will be blank. Grant in System Settings → Privacy & Security → Screen Recording."
+                        status =
+                            "Accessibility granted; Screen Recording NOT granted. Element actions work; get_app_state screenshots will be blank. Grant in System Settings → Privacy & Security → Screen Recording."
                     case (false, true):
-                        status = "Screen Recording granted; Accessibility NOT granted. No tools will work. Grant in System Settings → Privacy & Security → Accessibility."
+                        status =
+                            "Screen Recording granted; Accessibility NOT granted. No tools will work. Grant in System Settings → Privacy & Security → Accessibility."
                     case (false, false):
-                        status = "Neither Accessibility nor Screen Recording granted. No tools will work. Grant both in System Settings → Privacy & Security."
+                        status =
+                            "Neither Accessibility nor Screen Recording granted. No tools will work. Grant both in System Settings → Privacy & Security."
                     }
                     return ["content": [["type": "text", "text": status]]]
                 }
@@ -465,23 +472,23 @@ final class MCPServer {
             ],
             "serverInfo": serverInfo,
             "instructions": """
-                Native macOS Computer Use MCP server.
+            Native macOS Computer Use MCP server.
 
-                Usage:
-                  1. Call get_app_state on a target app each turn before
-                     issuing any action. The returned tree assigns element
-                     indices used by click / set_value / scroll /
-                     perform_secondary_action.
-                  2. Tool actions run in the background: the target app
-                     does not come to the foreground, the user's cursor
-                     does not move, and their frontmost app is preserved.
-                  3. Prefer element_index over pixel coordinates for AX-
-                     addressable targets — faster, more reliable, and not
-                     subject to window-layout drift.
-                  4. Pixel clicks into Chromium/Electron web content work
-                     via a trusted per-pid SkyLight path; a one-time primer
-                     click satisfies the renderer's user-activation gate.
-                """,
+            Usage:
+              1. Call get_app_state on a target app each turn before
+                 issuing any action. The returned tree assigns element
+                 indices used by click / set_value / scroll /
+                 perform_secondary_action.
+              2. Tool actions run in the background: the target app
+                 does not come to the foreground, the user's cursor
+                 does not move, and their frontmost app is preserved.
+              3. Prefer element_index over pixel coordinates for AX-
+                 addressable targets — faster, more reliable, and not
+                 subject to window-layout drift.
+              4. Pixel clicks into Chromium/Electron web content work
+                 via a trusted per-pid SkyLight path; a one-time primer
+                 click satisfies the renderer's user-activation gate.
+            """,
         ]
     }
 
