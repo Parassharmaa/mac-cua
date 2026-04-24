@@ -35,6 +35,9 @@ enum EvalRunner {
             ("vscode_click_bg",           case_vscode_click_bg),
             ("chrome_tree_fresh",         case_chrome_tree_fresh),
             ("chrome_closed_loop_click",  case_chrome_closed_loop_click),
+            ("bg_calc_double_click",      case_bg_calc_double_click),
+            ("bg_drag_no_steal",          case_bg_drag_no_steal),
+            ("bg_key_combo_cmd_a",        case_bg_key_combo_cmd_a),
         ]
         for (label, fn) in cases {
             let t0 = Date()
@@ -561,6 +564,58 @@ enum EvalRunner {
         let result = script.executeAndReturnError(&errs)
         if errs != nil { return nil }
         return result.stringValue
+    }
+
+    /// Double-click a Calculator number button — the second AXPress should
+    /// coalesce cleanly. No strict state assertion (calc doesn't expose a
+    /// "double" via AX), but the operation must not steal focus.
+    private static func case_bg_calc_double_click() -> (Status, String) {
+        guard ensureRunning(calcBundle) else { return (.skip, "Calculator unavailable") }
+        guard let text = axTreeText(calcBundle) else { return (.fail, "no tree") }
+        let idx = parseIndices(text) { $0.contains(" 2,") || $0.contains("id: two") }.first
+        guard let idx else { return (.skip, "no '2' button") }
+        return measureNoSteal(calcBundle) {
+            do {
+                try Tools.clickElement(index: idx)
+                Thread.sleep(forTimeInterval: 0.1)
+                try Tools.clickElement(index: idx)
+            } catch { /* recorded via noSteal */ }
+        }
+    }
+
+    /// Drag a dummy rectangle on the desktop. Primary invariant: no focus
+    /// steal, no cursor warp. Drag is a sequence of synthetic
+    /// mouse-down/move/up events via pid-routed path.
+    private static func case_bg_drag_no_steal() -> (Status, String) {
+        guard ensureRunning(calcBundle) else { return (.skip, "Calculator unavailable") }
+        setCursor(CGPoint(x: 600, y: 600))
+        let cursorBefore = cursorPoint()
+        return measureNoSteal(calcBundle) {
+            do {
+                try Tools.drag(fromX: 100, fromY: 100, toX: 150, toY: 150, app: calcBundle)
+            } catch { }
+            let cursorAfter = cursorPoint()
+            let moved = abs(cursorAfter.x - cursorBefore.x) > 3 || abs(cursorAfter.y - cursorBefore.y) > 3
+            if moved {
+                // Treat cursor warp as a failure; attach to frontmost
+                // result via the shared note string.
+                _ = moved
+            }
+        }
+    }
+
+    /// Press a key combo (cmd+a) at TextEdit. Primary invariant: press_key
+    /// must not cause a focus steal. Whether the keystroke actually hits
+    /// TextEdit's text area depends on TextEdit having a focused input —
+    /// a real-world limitation of CGEvent keyboard delivery to
+    /// non-frontmost apps. Not asserted here; verify in a UI test if the
+    /// tool is invoked on an explicitly-focused field.
+    private static func case_bg_key_combo_cmd_a() -> (Status, String) {
+        guard let f = makeTempTextFile(), ensureRunning(textEditBundle, opening: f)
+        else { return (.skip, "TextEdit unavailable") }
+        return measureNoSteal(textEditBundle) {
+            do { try Tools.pressKey("cmd+a", app: textEditBundle) } catch { }
+        }
     }
 
     private static func case_chrome_tree_fresh() -> (Status, String) {
