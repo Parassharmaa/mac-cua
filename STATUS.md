@@ -6,11 +6,11 @@ Background computer-use implementation — current state.
 
     make eval     # builds + runs .build/release/cua-mcp eval
 
-Most recent run: **18 pass · 0 fail · 2 skip** across 20 cases.
-Reproducible across three consecutive runs. Passes include a 100×
-clickElement stress bench that reports 10.5 ms/call end-to-end with
-no focus steals. The two skips are external config, not
-implementation gaps:
+Most recent run: **19 pass · 0 fail · 2 skip** across 21 cases.
+Reproducible across consecutive runs. Passes include a 100×
+clickElement stress bench that reports ~10 ms/call end-to-end with
+no focus steals, and a clipboard round-trip. The two skips are
+external config, not implementation gaps:
 
 | skip                        | cause                                                            |
 |-----------------------------|------------------------------------------------------------------|
@@ -40,6 +40,13 @@ implementation gaps:
 | In-process Swift eval (no subprocess focus flicker)    | ✓      |
 | Closed-loop action verification (Calc / TextEdit / Chrome) | ✓  |
 | swift-format config + `make format`/`make lint`        | ✓      |
+| Expanding click-ring animation on pulse                 | ✓      |
+| Idle auto-fade (2 s) with re-show on next action        | ✓      |
+| `get_app_state` capture_mode = som / ax / vision         | ✓      |
+| `eval-json` line-delimited CI output                    | ✓      |
+| `--fast` eval mode skipping perf case                   | ✓      |
+| `get_permissions` / `get_clipboard` / `set_clipboard`   | ✓      |
+| CLAUDE.md conventions for future edits                  | ✓      |
 
 ## What was removed
 
