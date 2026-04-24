@@ -12,7 +12,7 @@ import Foundation
 enum EvalRunner {
     enum Status: String { case pass = "PASS", fail = "FAIL", skip = "SKIP" }
 
-    static func run() -> Int32 {
+    static func run(jsonOutput: Bool = false) -> Int32 {
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
 
@@ -47,11 +47,50 @@ enum EvalRunner {
             results.append((label, status, dt, note))
         }
 
-        printResults(results)
+        if jsonOutput {
+            printJSON(results)
+        } else {
+            printResults(results)
+        }
         cleanup()
 
         let nFail = results.filter { $0.status == .fail }.count
         return nFail == 0 ? 0 : 1
+    }
+
+    /// Emit one JSON object per case followed by a summary object. Line-
+    /// delimited so it can be streamed by CI without buffering the whole
+    /// result set.
+    private static func printJSON(_ rows: [(String, Status, TimeInterval, String)]) {
+        for (label, status, dt, note) in rows {
+            let obj: [String: Any] = [
+                "case": label,
+                "status": status.rawValue,
+                "duration_s": Double(round(dt * 1000) / 1000),
+                "note": note,
+            ]
+            if let data = try? JSONSerialization.data(withJSONObject: obj),
+                let s = String(data: data, encoding: .utf8)
+            {
+                print(s)
+            }
+        }
+        let pCount = rows.filter { $0.1 == .pass }.count
+        let fCount = rows.filter { $0.1 == .fail }.count
+        let kCount = rows.filter { $0.1 == .skip }.count
+        let summary: [String: Any] = [
+            "summary": [
+                "total": rows.count,
+                "pass": pCount,
+                "fail": fCount,
+                "skip": kCount,
+            ]
+        ]
+        if let data = try? JSONSerialization.data(withJSONObject: summary),
+            let s = String(data: data, encoding: .utf8)
+        {
+            print(s)
+        }
     }
 
     // MARK: - Output
