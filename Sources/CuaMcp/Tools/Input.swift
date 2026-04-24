@@ -171,7 +171,17 @@ extension Tools {
             AXUIElementSetAttributeValue(element, "AXValue" as CFString, value as CFString)
         }
         guard err == .success else {
-            throw MCPError(code: -32000, message: "Failed to set value (AXError=\(err.rawValue))")
+            let role: String = AXTreeBuilder.attribute(element, "AXRole") ?? "unknown"
+            let title: String =
+                AXTreeBuilder.attribute(element, "AXTitle")
+                ?? AXTreeBuilder.attribute(element, "AXDescription")
+                ?? AXTreeBuilder.attribute(element, "AXIdentifier")
+                ?? ""
+            let detail = title.isEmpty ? role : "\(role) '\(title)'"
+            throw MCPError(
+                code: -32000,
+                message:
+                    "Failed to set value on element \(index) (\(detail), AXError=\(err.rawValue))")
         }
     }
 

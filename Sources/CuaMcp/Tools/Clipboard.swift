@@ -20,4 +20,26 @@ extension Tools {
         pb.clearContents()
         return pb.setString(text, forType: .string)
     }
+
+    /// Paste `text` into the currently focused input of `app` (or the
+    /// frontmost app if `app` is nil). Implementation: write `text` to the
+    /// pasteboard, fire `cmd+v`, then restore the prior clipboard after a
+    /// short delay. Faster than `type_text` for long or unicode-heavy
+    /// content — avoids per-scalar CGEvent dispatch and sidesteps
+    /// Chromium's keyboard trust filter entirely (cmd+v is a single
+    /// short keystroke sequence).
+    static func paste(_ text: String, app: String? = nil) throws {
+        let prior = getClipboard()
+        _ = setClipboard(text)
+        // Brief settle so the pasteboard's changeCount propagates before
+        // we fire the shortcut.
+        Thread.sleep(forTimeInterval: 0.05)
+        try pressKey("cmd+v", app: app)
+        // Restore the user's original clipboard shortly after so the
+        // paste contents don't linger in their buffer. 300ms gives the
+        // target enough time to consume the paste.
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.3) {
+            _ = setClipboard(prior)
+        }
+    }
 }

@@ -368,6 +368,34 @@ enum ToolRegistry {
                 }
             ),
             Tool(
+                name: "paste",
+                description:
+                    "Paste `text` into the currently focused input of the target app. Routes via NSPasteboard + cmd+v — faster than type_text for long or unicode-heavy content and avoids Chromium's per-scalar keyboard trust filter. Prior clipboard contents are restored after the paste.",
+                schema: [
+                    "name": "paste",
+                    "description": "Paste text via NSPasteboard + cmd+v.",
+                    "inputSchema": [
+                        "type": "object",
+                        "properties": [
+                            "text": ["type": "string"],
+                            "app": [
+                                "type": "string",
+                                "description": "Optional target app bundle ID or name.",
+                            ],
+                        ] as [String: Any],
+                        "required": ["text"],
+                        "additionalProperties": false,
+                    ],
+                ],
+                handler: { args in
+                    guard let text = args["text"] as? String else {
+                        throw MCPError(code: -32602, message: "paste requires 'text'")
+                    }
+                    try Tools.paste(text, app: args["app"] as? String)
+                    return ["content": [["type": "text", "text": "ok"]]]
+                }
+            ),
+            Tool(
                 name: "get_permissions",
                 description:
                     "Report which macOS TCC permissions this server currently holds. Lets clients surface actionable setup steps to the user if anything is missing.",
