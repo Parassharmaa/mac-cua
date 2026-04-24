@@ -16,6 +16,12 @@ func writeJSON(_ value: Any) {
 }
 
 switch args.first {
+case "--version", "-v", "version":
+    // Mirror the version we advertise over MCP initialize so clients
+    // that introspect both sources see the same number.
+    print("cua-mcp 0.1.0")
+    exit(0)
+
 case "tools":
     writeJSON(["tools": ToolRegistry.all.map { $0.schema }])
     exit(0)
