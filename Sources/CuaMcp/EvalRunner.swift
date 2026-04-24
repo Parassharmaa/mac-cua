@@ -40,6 +40,7 @@ enum EvalRunner {
             ("bg_key_combo_cmd_a", case_bg_key_combo_cmd_a),
             ("perf_100x_click", case_perf_100x_click),
             ("clipboard_roundtrip", case_clipboard_roundtrip),
+            ("wait_for_element_calc", case_wait_for_element_calc),
         ]
         let effective = skipPerf ? cases.filter { $0.0 != "perf_100x_click" } : cases
         for (label, fn) in effective {
@@ -731,6 +732,28 @@ enum EvalRunner {
         else { return (.skip, "TextEdit unavailable") }
         return measureNoSteal(textEditBundle) {
             do { try Tools.pressKey("cmd+a", app: textEditBundle) } catch {}
+        }
+    }
+
+    /// Wait for the "button 1" entry on Calculator's AX tree. Should
+    /// resolve on the first snapshot (<200ms) with index=24. Verifies the
+    /// tool dispatches, matches, and doesn't cause a steal.
+    private static func case_wait_for_element_calc() -> (Status, String) {
+        guard ensureRunning(calcBundle) else { return (.skip, "Calculator unavailable") }
+        let before = frontmost()
+        let t0 = Date()
+        do {
+            let idx = try Tools.waitForElement(
+                app: calcBundle, matching: "button 1", timeoutMs: 2000)
+            let dt = Date().timeIntervalSince(t0)
+            let after = frontmost()
+            let stole = before != calcBundle && after == calcBundle
+            let ok = idx > 0 && !stole
+            return (ok ? .pass : .fail,
+                    String(format: "idx=%d dt=%.2fs stole=%@ after=%@",
+                        idx, dt, stole ? "true" : "false", after))
+        } catch {
+            return (.fail, "waitForElement: \(error)")
         }
     }
 
