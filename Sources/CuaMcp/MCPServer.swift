@@ -265,11 +265,11 @@ enum ToolRegistry {
             Tool(
                 name: "get_app_state",
                 description:
-                    "Activate the target app and return its accessibility tree with numbered element indices. Call this first each turn before any other tool.",
+                    "Return the target app's accessibility tree with numbered element indices. Call this first each turn before any other tool. `capture_mode` selects what the response includes: `som` (default) = tree + window screenshot, `ax` = tree only (no Screen Recording dependency), `vision` = screenshot only.",
                 schema: [
                     "name": "get_app_state",
                     "description":
-                        "Activate the target app and return its accessibility tree with numbered element indices.",
+                        "Return the target app's accessibility tree with numbered element indices.",
                     "inputSchema": [
                         "type": "object",
                         "properties": [
@@ -277,7 +277,13 @@ enum ToolRegistry {
                                 "type": "string",
                                 "description":
                                     "Bundle identifier (preferred) or localized app name.",
-                            ]
+                            ],
+                            "capture_mode": [
+                                "type": "string",
+                                "enum": ["som", "ax", "vision"],
+                                "description":
+                                    "What to return: som=tree+screenshot (default), ax=tree only, vision=screenshot only.",
+                            ],
                         ] as [String: Any],
                         "required": ["app"],
                         "additionalProperties": false,
@@ -287,11 +293,29 @@ enum ToolRegistry {
                     guard let app = args["app"] as? String, !app.isEmpty else {
                         throw MCPError(code: -32602, message: "get_app_state requires string 'app'")
                     }
+                    let mode = (args["capture_mode"] as? String) ?? "som"
+                    guard ["som", "ax", "vision"].contains(mode) else {
+                        throw MCPError(
+                            code: -32602,
+                            message: "capture_mode must be one of: som, ax, vision")
+                    }
                     let (runningApp, root, text) = try Tools.getAppState(app: app)
                     ElementCache.shared.replace(root: root)
-                    var content: [[String: Any]] = [["type": "text", "text": text]]
-                    if let png = Screenshot.captureAppWindowPNG(pid: runningApp.processIdentifier) {
-                        content.append(["type": "image", "mimeType": "image/png", "data": png])
+                    var content: [[String: Any]] = []
+                    if mode == "ax" || mode == "som" {
+                        content.append(["type": "text", "text": text])
+                    }
+                    if mode == "vision" || mode == "som" {
+                        if let png = Screenshot.captureAppWindowPNG(pid: runningApp.processIdentifier) {
+                            content.append(["type": "image", "mimeType": "image/png", "data": png])
+                        } else if mode == "vision" {
+                            // Vision mode with no screenshot is useless — surface
+                            // the failure instead of returning empty content.
+                            throw MCPError(
+                                code: -32000,
+                                message:
+                                    "capture_mode=vision requested but Screen Recording permission appears to be missing. Call get_permissions to confirm.")
+                        }
                     }
                     return ["content": content]
                 }
