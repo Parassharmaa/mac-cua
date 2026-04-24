@@ -303,32 +303,26 @@ final class CursorContentView: NSView {
     /// around the centroid and translate to our local anchor. `scale` sets
     /// the final long-axis length in points.
     private static func arrowPath(scale: CGFloat, center: CGPoint) -> CGPath {
-        // Raw Figma-cursor coords (SVG y-down, 96x104 viewBox, tip at
-        // top-left). Source: github.com/mskelton/cursed.
-        let raw: [(CGFloat, CGFloat)] = [
-            (0.86, 0.70),    // tip (top-left of viewbox)
-            (95.78, 51.59),  // right shoulder
-            (50.36, 59.68),  // inner notch
-            (34.50, 103.01), // tail (bottom)
-        ]
-        // Remap so the tip lives at +x of local origin. That way, rotating
-        // the layer by `heading` angle brings the tip along motion direction.
-        // Transform:
-        //   nx = (cy_svg - y_raw) * k    — svg-up becomes local +x
-        //   ny = (cx_svg - x_raw) * k    — svg-left becomes local +y
-        // Then translate by `center` so the path fits inside the layer
-        // bounds (origin-at-center instead of origin-at-corner).
-        let maxDim: CGFloat = 104
-        let cxSvg: CGFloat = 48
-        let cySvg: CGFloat = 52
-        let k = scale / maxDim
+        // Stylized 4-point pointer. Tip at `center`, body extends into -x
+        // direction (toward west). Heading rotation pivots body around the
+        // tip — heading=0 → tip east (body west); heading=3π/4 → tip NW
+        // (body SE).
+        //
+        // Coordinates in local NS space (y-up). Unit: `scale`.
+        let tipX: CGFloat = 0, tipY: CGFloat = 0
+        let bodyX: CGFloat = -scale * 0.78
+        let notchX: CGFloat = -scale * 0.48
+        let wingY: CGFloat = scale * 0.30
+        // Slight asymmetric lean so the pointer reads less like a generic
+        // pixel arrow and more like a stylized agent cursor — upper wing
+        // longer than the lower.
+        let upperWingY: CGFloat = wingY * 1.08
+        let lowerWingY: CGFloat = -wingY * 0.92
         let p = CGMutablePath()
-        for (i, (rx, ry)) in raw.enumerated() {
-            let nx = (cySvg - ry) * k + center.x
-            let ny = (cxSvg - rx) * k + center.y
-            if i == 0 { p.move(to: CGPoint(x: nx, y: ny)) }
-            else { p.addLine(to: CGPoint(x: nx, y: ny)) }
-        }
+        p.move(to: CGPoint(x: tipX + center.x, y: tipY + center.y))
+        p.addLine(to: CGPoint(x: bodyX + center.x, y: upperWingY + center.y))
+        p.addLine(to: CGPoint(x: notchX + center.x, y: center.y))
+        p.addLine(to: CGPoint(x: bodyX + center.x, y: lowerWingY + center.y))
         p.closeSubpath()
         return p
     }
