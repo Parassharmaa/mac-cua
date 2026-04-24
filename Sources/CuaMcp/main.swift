@@ -91,12 +91,17 @@ case "eval", "eval-json":
     // subprocess focus leakage. `eval` prints a human-readable table;
     // `eval-json` emits one JSON object per case on stdout for CI /
     // scripting consumption.
+    //
+    // `--fast` skips the 100× perf stress case (~1s) for inner-loop
+    // iteration. The perf case is the only one that takes meaningfully
+    // longer than a single AX interaction.
     let app = NSApplication.shared
     app.setActivationPolicy(.accessory)
     let json = (args.first == "eval-json")
+    let fast = args.contains("--fast")
     var code: Int32 = 0
     DispatchQueue.global().async {
-        code = EvalRunner.run(jsonOutput: json)
+        code = EvalRunner.run(jsonOutput: json, skipPerf: fast)
         DispatchQueue.main.async { NSApplication.shared.terminate(nil) }
     }
     app.run()

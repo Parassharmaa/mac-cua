@@ -12,7 +12,7 @@ import Foundation
 enum EvalRunner {
     enum Status: String { case pass = "PASS", fail = "FAIL", skip = "SKIP" }
 
-    static func run(jsonOutput: Bool = false) -> Int32 {
+    static func run(jsonOutput: Bool = false, skipPerf: Bool = false) -> Int32 {
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
 
@@ -40,7 +40,8 @@ enum EvalRunner {
             ("bg_key_combo_cmd_a", case_bg_key_combo_cmd_a),
             ("perf_100x_click", case_perf_100x_click),
         ]
-        for (label, fn) in cases {
+        let effective = skipPerf ? cases.filter { $0.0 != "perf_100x_click" } : cases
+        for (label, fn) in effective {
             let t0 = Date()
             let (status, note) = fn()
             let dt = Date().timeIntervalSince(t0)
