@@ -162,8 +162,9 @@ final class CursorContentView: NSView {
     private let strokeLayer = CAShapeLayer()
     private var isMoving = false
     /// Cursor heading in radians — motion direction. Arrow tip rotates to
-    /// point along this vector.
-    private(set) var heading: Double = -.pi * 0.75  // NW tilt idle.
+    /// point along this vector. Idle heading puts the tip at upper-left
+    /// (NW), matching macOS's own idle cursor orientation.
+    private(set) var heading: Double = .pi * 0.75  // NW (upper-left) idle.
 
     override var isFlipped: Bool { false }
     override var wantsUpdateLayer: Bool { true }
