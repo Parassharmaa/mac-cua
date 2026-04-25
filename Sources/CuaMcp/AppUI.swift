@@ -38,11 +38,6 @@ final class AppUI: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        FileHandle.standardError.write("[appui] didFinishLaunching\n".data(using: .utf8)!)
-        // Restore focus to whoever was frontmost before we launched.
-        // `open /Applications/CuaMcp.app` forces activation even on
-        // `.accessory` apps; we undo it immediately so the user's flow
-        // isn't interrupted. Menu-bar icon still appears normally.
         NSApp.hide(nil)
         if let prev = Self.previousFrontmost,
             prev.processIdentifier != ProcessInfo.processInfo.processIdentifier
@@ -50,26 +45,9 @@ final class AppUI: NSObject, NSApplicationDelegate {
             prev.activate(options: [.activateIgnoringOtherApps])
         }
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        FileHandle.standardError.write(
-            "[appui] statusItem isVisible=\(statusItem.isVisible) length=\(statusItem.length)\n"
-                .data(using: .utf8)!)
         if let button = statusItem.button {
-            // SF Symbol — `cursorarrow.click.2` reads as an agent cursor.
-            // Falls back to a glyph string if the symbol isn't available
-            // (e.g. very old macOS) so the menubar item is always visible.
-            if let img = NSImage(
-                systemSymbolName: "cursorarrow.click.2", accessibilityDescription: "cua-mcp")
-            {
-                button.image = img
-            } else {
-                button.title = "◉"
-            }
-            button.toolTip = "mac-cua MCP server"
             button.action = #selector(togglePopover(_:))
             button.target = self
-        } else {
-            FileHandle.standardError.write(
-                "[appui] WARN: statusItem.button is nil\n".data(using: .utf8)!)
         }
         hostingView = PermissionsView(frame: NSRect(x: 0, y: 0, width: 380, height: 380))
         popover = NSPopover()
@@ -77,39 +55,21 @@ final class AppUI: NSObject, NSApplicationDelegate {
         popover.behavior = .transient
         popover.contentViewController = NSViewController()
         popover.contentViewController?.view = hostingView
-        // Refresh both the menubar badge tint AND the popover view contents
-        // every 1.5s. Without the popover refresh, opening the popover before
-        // granting permissions left it stuck on the "Grant" prompts even
-        // after the user finished the System Settings flow — the row state
-        // only updated on next open.
-        let badgeTimer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.refreshBadge()
             self?.hostingView?.refresh()
         }
-        RunLoop.main.add(badgeTimer, forMode: .common)
-        refreshTimer = badgeTimer
+        RunLoop.main.add(timer, forMode: .common)
+        refreshTimer = timer
         refreshBadge()
-
-        // Visibility safety net: on machines with crowded menubars the
-        // status item gets clipped behind the notch and becomes
-        // unreachable. If we have no permissions yet (first launch),
-        // show a regular floating window with the same UI so the user
-        // can complete setup without hunting for the menubar item.
-        // Dismissed once both permissions are granted.
-        let axState = Permissions.axState()
-        let sr = Permissions.screenRecordingGranted()
-        if axState != .granted || !sr {
-            showSetupWindow()
-        }
+        showSetupWindow()
     }
 
     private var setupWindow: NSWindow?
 
-    /// Floating setup window — fallback when the menubar status item is
-    /// hidden under the display notch / Bartender / overflow. Shows the
-    /// same `PermissionsView` contents. Auto-dismisses 2 s after the user
-    /// finishes granting both permissions. Center of main screen, always
-    /// on top, no Dock icon (we stay `.accessory`).
+    /// Floating setup window. Always shown on launch — fallback for
+    /// machines where the menubar status item ends up clipped under
+    /// the display notch or hidden by Bartender-style menubar managers.
     func showSetupWindow() {
         if setupWindow != nil { return }
         let view = PermissionsView(frame: NSRect(x: 0, y: 0, width: 380, height: 380))
@@ -118,7 +78,7 @@ final class AppUI: NSObject, NSApplicationDelegate {
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false)
-        win.title = "mac-cua setup"
+        win.title = "mac-cua"
         win.isReleasedWhenClosed = false
         win.level = .floating
         win.center()
@@ -126,25 +86,7 @@ final class AppUI: NSObject, NSApplicationDelegate {
         win.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         setupWindow = win
-        // Refresh THIS window's view tick-by-tick, and dismiss it once
-        // both permissions land. Timer is added to `.common` modes so it
-        // fires while the window is tracking events (resize, drag) too,
-        // not just when the runloop is in default mode.
-        let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] t in
-            view.refresh()
-            let axState = Permissions.axState()
-            let sr = Permissions.screenRecordingGranted()
-            FileHandle.standardError.write(
-                "[appui] setup-window tick: ax=\(axState.rawValue) sr=\(sr)\n"
-                    .data(using: .utf8)!)
-            if axState == .granted && sr {
-                t.invalidate()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                    self?.setupWindow?.close()
-                    self?.setupWindow = nil
-                }
-            }
-        }
+        let timer = Timer(timeInterval: 1.0, repeats: true) { _ in view.refresh() }
         RunLoop.main.add(timer, forMode: .common)
     }
 
@@ -155,27 +97,12 @@ final class AppUI: NSObject, NSApplicationDelegate {
             return
         }
         hostingView.refresh()
-        // Intentionally do NOT call NSApp.activate(ignoringOtherApps:) —
-        // this is a non-activating panel behaviour. The popover is visible
-        // and interactive (buttons still click), but the user's previous
-        // app remains frontmost. "Everything in the background" ethos.
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
     }
 
-    /// Menubar icon. Always a cursor SF symbol rendered as a template
-    /// image so macOS handles the light/dark menubar theme automatically
-    /// — never set `contentTintColor` to a fixed system color, which
-    /// breaks template behavior and renders solid red/yellow on top of
-    /// the user's menubar (looks broken in dark mode, garish in light).
-    ///
-    ///   Ready          → `cursorarrow` outline, template tint.
-    ///   Needs setup    → `cursorarrow.fill` outline, template tint, with
-    ///                    a small `.exclamationmark.circle.fill` SF
-    ///                    composited at the bottom-right of the cursor —
-    ///                    the badge carries color (yellow / red) at a
-    ///                    size where it still reads on the menubar.
-    ///
-    /// Tooltip text spells out the actionable state.
+    /// Menubar cursor icon. Template image so it adapts to light/dark
+    /// menubars; small colored badge appears at bottom-right when a
+    /// permission is missing.
     private func refreshBadge() {
         let axState = Permissions.axState()
         let sr = Permissions.screenRecordingGranted()
@@ -208,9 +135,6 @@ final class AppUI: NSObject, NSApplicationDelegate {
 
         if let badgeColor, let base = base {
             button.image = Self.composeBadged(base: base, badgeColor: badgeColor)
-            // Composited image carries its own color — must NOT be
-            // template, otherwise macOS strips our tint and re-applies
-            // its own.
             button.image?.isTemplate = false
         } else {
             base?.isTemplate = true
@@ -220,21 +144,16 @@ final class AppUI: NSObject, NSApplicationDelegate {
         button.toolTip = tooltip
     }
 
-    /// Compose a colored exclamation badge at the bottom-right of `base`
-    /// for a menubar icon that signals a setup-needed state without
-    /// abandoning the cursor identity. Returns a flattened NSImage.
     private static func composeBadged(base: NSImage, badgeColor: NSColor) -> NSImage {
         let size = NSSize(width: 22, height: 22)
         let img = NSImage(size: size)
         img.lockFocusFlipped(false)
         defer { img.unlockFocus() }
-        // Tint base to label color so it matches menubar text.
         if let tinted = base.tinted(with: NSColor.labelColor) {
             tinted.draw(
                 in: NSRect(origin: .zero, size: size), from: .zero,
                 operation: .sourceOver, fraction: 1.0)
         }
-        // Badge: small filled circle in the bottom-right quadrant.
         let bRect = NSRect(x: size.width - 9, y: 0, width: 9, height: 9)
         badgeColor.setFill()
         NSBezierPath(ovalIn: bRect).fill()
@@ -243,9 +162,6 @@ final class AppUI: NSObject, NSApplicationDelegate {
 }
 
 private extension NSImage {
-    /// Return a copy of this image with the given color applied as the
-    /// fill color for the alpha mask. Used to template-tint an SF symbol
-    /// to label color before we composite a colored badge on top of it.
     func tinted(with color: NSColor) -> NSImage? {
         guard let copy = self.copy() as? NSImage else { return nil }
         copy.lockFocus()
