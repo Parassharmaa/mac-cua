@@ -82,11 +82,12 @@ final class AppUI: NSObject, NSApplicationDelegate {
         // granting permissions left it stuck on the "Grant" prompts even
         // after the user finished the System Settings flow — the row state
         // only updated on next open.
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) {
-            [weak self] _ in
+        let badgeTimer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.refreshBadge()
             self?.hostingView?.refresh()
         }
+        RunLoop.main.add(badgeTimer, forMode: .common)
+        refreshTimer = badgeTimer
         refreshBadge()
 
         // Visibility safety net: on machines with crowded menubars the
@@ -125,12 +126,17 @@ final class AppUI: NSObject, NSApplicationDelegate {
         win.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         setupWindow = win
-        // Hand the timer a hook to refresh THIS window's view too, and
-        // dismiss it once both permissions land.
-        Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] t in
+        // Refresh THIS window's view tick-by-tick, and dismiss it once
+        // both permissions land. Timer is added to `.common` modes so it
+        // fires while the window is tracking events (resize, drag) too,
+        // not just when the runloop is in default mode.
+        let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] t in
             view.refresh()
             let axState = Permissions.axState()
             let sr = Permissions.screenRecordingGranted()
+            FileHandle.standardError.write(
+                "[appui] setup-window tick: ax=\(axState.rawValue) sr=\(sr)\n"
+                    .data(using: .utf8)!)
             if axState == .granted && sr {
                 t.invalidate()
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
@@ -139,6 +145,7 @@ final class AppUI: NSObject, NSApplicationDelegate {
                 }
             }
         }
+        RunLoop.main.add(timer, forMode: .common)
     }
 
     @objc private func togglePopover(_ sender: Any?) {
@@ -155,45 +162,98 @@ final class AppUI: NSObject, NSApplicationDelegate {
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
     }
 
-    /// Always show the cursor SF symbol — never a warning triangle, which
-    /// reads as a different app from what's actually running. Tints:
-    ///   default → both granted, ready.
-    ///   yellow  → exactly one missing.
-    ///   red     → both missing OR Accessibility is in the stale-cache
-    ///             state where TCC says granted but AX calls fail.
-    /// Tooltip carries the actionable detail.
+    /// Menubar icon. Always a cursor SF symbol rendered as a template
+    /// image so macOS handles the light/dark menubar theme automatically
+    /// — never set `contentTintColor` to a fixed system color, which
+    /// breaks template behavior and renders solid red/yellow on top of
+    /// the user's menubar (looks broken in dark mode, garish in light).
+    ///
+    ///   Ready          → `cursorarrow` outline, template tint.
+    ///   Needs setup    → `cursorarrow.fill` outline, template tint, with
+    ///                    a small `.exclamationmark.circle.fill` SF
+    ///                    composited at the bottom-right of the cursor —
+    ///                    the badge carries color (yellow / red) at a
+    ///                    size where it still reads on the menubar.
+    ///
+    /// Tooltip text spells out the actionable state.
     private func refreshBadge() {
         let axState = Permissions.axState()
         let sr = Permissions.screenRecordingGranted()
         guard let button = statusItem.button else { return }
-        let symbolName: String
-        let tint: NSColor?
+
+        let baseName = (axState == .granted && sr) ? "cursorarrow" : "cursorarrow.fill"
+        let cfg = NSImage.SymbolConfiguration(pointSize: 15, weight: .regular)
+        let base = NSImage(systemSymbolName: baseName, accessibilityDescription: "mac-cua")?
+            .withSymbolConfiguration(cfg)
+
+        let badgeColor: NSColor?
         let tooltip: String
         switch (axState, sr) {
         case (.granted, true):
-            symbolName = "cursorarrow.click.2"
-            tint = nil
+            badgeColor = nil
             tooltip = "mac-cua MCP server — ready"
+        case (.staleNeedsRestart, _):
+            badgeColor = .systemRed
+            tooltip = "mac-cua — TCC stale, quit and re-launch this app"
         case (.notGranted, false):
-            symbolName = "cursorarrow.click.2.fill"
-            tint = .systemRed
+            badgeColor = .systemRed
             tooltip = "mac-cua — needs Accessibility + Screen Recording"
         case (.notGranted, true):
-            symbolName = "cursorarrow.click.2.fill"
-            tint = .systemYellow
+            badgeColor = .systemOrange
             tooltip = "mac-cua — needs Accessibility"
         case (.granted, false):
-            symbolName = "cursorarrow.click.2.fill"
-            tint = .systemYellow
+            badgeColor = .systemOrange
             tooltip = "mac-cua — needs Screen Recording"
-        case (.staleNeedsRestart, _):
-            symbolName = "cursorarrow.click.2.fill"
-            tint = .systemRed
-            tooltip = "mac-cua — TCC stale, restart this app to refresh"
         }
-        button.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: tooltip)
-        button.contentTintColor = tint
+
+        if let badgeColor, let base = base {
+            button.image = Self.composeBadged(base: base, badgeColor: badgeColor)
+            // Composited image carries its own color — must NOT be
+            // template, otherwise macOS strips our tint and re-applies
+            // its own.
+            button.image?.isTemplate = false
+        } else {
+            base?.isTemplate = true
+            button.image = base
+            button.contentTintColor = nil
+        }
         button.toolTip = tooltip
+    }
+
+    /// Compose a colored exclamation badge at the bottom-right of `base`
+    /// for a menubar icon that signals a setup-needed state without
+    /// abandoning the cursor identity. Returns a flattened NSImage.
+    private static func composeBadged(base: NSImage, badgeColor: NSColor) -> NSImage {
+        let size = NSSize(width: 22, height: 22)
+        let img = NSImage(size: size)
+        img.lockFocusFlipped(false)
+        defer { img.unlockFocus() }
+        // Tint base to label color so it matches menubar text.
+        if let tinted = base.tinted(with: NSColor.labelColor) {
+            tinted.draw(
+                in: NSRect(origin: .zero, size: size), from: .zero,
+                operation: .sourceOver, fraction: 1.0)
+        }
+        // Badge: small filled circle in the bottom-right quadrant.
+        let bRect = NSRect(x: size.width - 9, y: 0, width: 9, height: 9)
+        badgeColor.setFill()
+        NSBezierPath(ovalIn: bRect).fill()
+        return img
+    }
+}
+
+private extension NSImage {
+    /// Return a copy of this image with the given color applied as the
+    /// fill color for the alpha mask. Used to template-tint an SF symbol
+    /// to label color before we composite a colored badge on top of it.
+    func tinted(with color: NSColor) -> NSImage? {
+        guard let copy = self.copy() as? NSImage else { return nil }
+        copy.lockFocus()
+        color.set()
+        let rect = NSRect(origin: .zero, size: copy.size)
+        rect.fill(using: .sourceAtop)
+        copy.unlockFocus()
+        return copy
     }
 }
 
