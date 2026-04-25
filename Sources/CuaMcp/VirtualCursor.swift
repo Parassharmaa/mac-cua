@@ -16,7 +16,7 @@ final class VirtualCursor {
 
     private var panel: NSPanel?
     private var contentView: CursorContentView?
-    private let cursorSize = NSSize(width: 56, height: 56)
+    private let cursorSize = NSSize(width: 80, height: 80)
     /// Auto-hide after this many seconds of no `animate`/`pulse` calls.
     /// Prevents the overlay from lingering at the last click site after
     /// the agent finishes a turn — invisible by default once the session
@@ -267,7 +267,7 @@ final class CursorContentView: NSView {
         layer?.addSublayer(arrowContainer)
 
         let path = Self.arrowPath(
-            scale: bounds.width * 0.70, center: CGPoint(x: bounds.midX, y: bounds.midY))
+            scale: bounds.width * 0.55, center: CGPoint(x: bounds.midX, y: bounds.midY))
         arrowLayer.path = path
         // Iridescent violet-blue — distinct from any OS cursor color so users
         // can always tell which pointer is the agent's. Matches Claude brand
@@ -307,7 +307,7 @@ final class CursorContentView: NSView {
         bloomLayer.frame = bounds
         arrowContainer.frame = bounds
         let path = Self.arrowPath(
-            scale: bounds.width * 0.70, center: CGPoint(x: bounds.midX, y: bounds.midY))
+            scale: bounds.width * 0.55, center: CGPoint(x: bounds.midX, y: bounds.midY))
         arrowLayer.path = path
         strokeLayer.path = path
         arrowLayer.frame = bounds
