@@ -104,28 +104,45 @@ final class AppUI: NSObject, NSApplicationDelegate {
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
     }
 
-    /// Tint menu-bar symbol by permission state. Uses SF Symbol contentTint
-    /// so the icon adapts to light/dark menubars automatically.
+    /// Always show the cursor SF symbol — never a warning triangle, which
+    /// reads as a different app from what's actually running. Tints:
+    ///   default → both granted, ready.
+    ///   yellow  → exactly one missing.
+    ///   red     → both missing OR Accessibility is in the stale-cache
+    ///             state where TCC says granted but AX calls fail.
+    /// Tooltip carries the actionable detail.
     private func refreshBadge() {
-        let ax = Permissions.axTrusted()
+        let axState = Permissions.axState()
         let sr = Permissions.screenRecordingGranted()
         guard let button = statusItem.button else { return }
-        switch (ax, sr) {
-        case (true, true):
-            button.image = NSImage(
-                systemSymbolName: "cursorarrow.click.2", accessibilityDescription: "Ready")
-            button.contentTintColor = nil
-        case (false, false):
-            button.image = NSImage(
-                systemSymbolName: "exclamationmark.triangle.fill",
-                accessibilityDescription: "Needs both permissions")
-            button.contentTintColor = .systemRed
-        default:
-            button.image = NSImage(
-                systemSymbolName: "cursorarrow.click.2.fill",
-                accessibilityDescription: "Needs one permission")
-            button.contentTintColor = .systemYellow
+        let symbolName: String
+        let tint: NSColor?
+        let tooltip: String
+        switch (axState, sr) {
+        case (.granted, true):
+            symbolName = "cursorarrow.click.2"
+            tint = nil
+            tooltip = "mac-cua MCP server — ready"
+        case (.notGranted, false):
+            symbolName = "cursorarrow.click.2.fill"
+            tint = .systemRed
+            tooltip = "mac-cua — needs Accessibility + Screen Recording"
+        case (.notGranted, true):
+            symbolName = "cursorarrow.click.2.fill"
+            tint = .systemYellow
+            tooltip = "mac-cua — needs Accessibility"
+        case (.granted, false):
+            symbolName = "cursorarrow.click.2.fill"
+            tint = .systemYellow
+            tooltip = "mac-cua — needs Screen Recording"
+        case (.staleNeedsRestart, _):
+            symbolName = "cursorarrow.click.2.fill"
+            tint = .systemRed
+            tooltip = "mac-cua — TCC stale, restart this app to refresh"
         }
+        button.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: tooltip)
+        button.contentTintColor = tint
+        button.toolTip = tooltip
     }
 }
 
@@ -280,18 +297,26 @@ final class PermissionsView: NSView {
     }
 
     func refresh() {
-        let ax = Permissions.axTrusted()
+        let axState = Permissions.axState()
         let sr = Permissions.screenRecordingGranted()
-        axRow.setGranted(ax)
+        // Stale state still passes the bool check, but the row shows
+        // "Granted" so the user can see the system thinks it's on while
+        // the status line tells them to restart.
+        axRow.setGranted(axState != .notGranted)
         srRow.setGranted(sr)
-        if ax && sr {
+        switch (axState, sr) {
+        case (.granted, true):
             statusLabel.stringValue = "Ready. Point your MCP client at the path below."
-        } else if !ax && !sr {
+        case (.staleNeedsRestart, _):
+            statusLabel.stringValue =
+                "Accessibility is granted in System Settings but the cache is stale. "
+                + "Quit and re-launch this app (or reboot) to refresh — known macOS bug."
+        case (.notGranted, false):
             statusLabel.stringValue = "Grant both permissions to enable all tools."
-        } else if !ax {
+        case (.notGranted, true):
             statusLabel.stringValue =
                 "Needs Accessibility — the rest of the tools won't work without it."
-        } else {
+        case (.granted, false):
             statusLabel.stringValue =
                 "Needs Screen Recording — screenshots will be blank until granted."
         }

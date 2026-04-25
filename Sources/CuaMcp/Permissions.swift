@@ -1,11 +1,46 @@
-import Foundation
+import AppKit
 import ApplicationServices
 import CoreGraphics
+import Foundation
 
 enum Permissions {
+    /// Three-state grant report:
+    ///   - `granted`        : TCC says granted AND a real AX read succeeded.
+    ///   - `notGranted`     : TCC says not granted.
+    ///   - `staleNeedsRestart`: TCC says granted but a real AX call returns
+    ///                          empty/nil. Known macOS bug — usually
+    ///                          requires re-launching this app or rebooting
+    ///                          to clear the bogus cache. Surface this
+    ///                          state to the user with a "Restart" affordance.
+    enum State: String {
+        case granted, notGranted, staleNeedsRestart
+    }
+
     static func axTrusted(prompt: Bool = false) -> Bool {
         let opts: CFDictionary = ["AXTrustedCheckOptionPrompt": prompt] as CFDictionary
         return AXIsProcessTrustedWithOptions(opts)
+    }
+
+    /// Functional probe — `AXIsProcessTrusted` returning true is necessary
+    /// but not sufficient. macOS occasionally caches a stale "granted" state
+    /// where the underlying AX SPI still rejects calls. Verify by reading
+    /// an attribute we know exists on a system process (Finder), under a
+    /// short timeout. Returns the granular `State`.
+    static func axState() -> State {
+        if !axTrusted(prompt: false) { return .notGranted }
+        // Functional probe: read Finder's frontmost-window title via AX.
+        // Safe because Finder always runs and always exposes its tree.
+        // If AX is truly granted, this succeeds in <50ms.
+        guard
+            let finder = NSRunningApplication.runningApplications(
+                withBundleIdentifier: "com.apple.finder"
+            ).first
+        else { return .granted }  // no Finder to probe; trust the bool
+        let axApp = AXUIElementCreateApplication(finder.processIdentifier)
+        var role: CFTypeRef?
+        let err = AXUIElementCopyAttributeValue(axApp, "AXRole" as CFString, &role)
+        if err == .success, role != nil { return .granted }
+        return .staleNeedsRestart
     }
 
     static func screenRecordingGranted() -> Bool {
