@@ -1,6 +1,6 @@
 BUNDLE_ID ?= com.parassharmaa.cua-mcp
 APP_NAME ?= CuaMcp
-VERSION ?= 0.1.0
+VERSION ?= 0.1.1
 BUILD_DIR := .build/release
 APP_BUNDLE := $(BUILD_DIR)/$(APP_NAME).app
 

@@ -490,7 +490,7 @@ private func formatAppList(_ apps: [[String: Any]]) -> String {
 
 final class MCPServer {
     private let supportedProtocols = ["2025-06-18", "2025-03-26", "2024-11-05"]
-    private let serverInfo: [String: Any] = ["name": "mac-cua-mcp", "version": "0.1.0"]
+    private let serverInfo: [String: Any] = ["name": "mac-cua-mcp", "version": "0.1.1"]
 
     func run() {
         let stdout = FileHandle.standardOutput

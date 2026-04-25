@@ -52,7 +52,7 @@ case "--help", "-h", "help":
 case "--version", "-v", "version":
     // Mirror the version we advertise over MCP initialize so clients
     // that introspect both sources see the same number.
-    print("cua-mcp 0.1.0")
+    print("cua-mcp 0.1.1")
     exit(0)
 
 case "tools":
@@ -162,7 +162,7 @@ if wantsUI {
 // first initialize round-trip. Stderr stays out of the JSON-RPC stream
 // on stdout.
 FileHandle.standardError.write(
-    "cua-mcp 0.1.0 — MCP stdio server ready\n".data(using: .utf8)!)
+    "cua-mcp 0.1.1 — MCP stdio server ready\n".data(using: .utf8)!)
 
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)

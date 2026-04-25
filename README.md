@@ -6,12 +6,13 @@ Spaces, or reordering windows in the z-stack.
 
 ## Tools
 
-Exposes twelve tools over MCP stdio:
+Exposes fourteen tools over MCP stdio:
 
     list_apps              get_app_state         click
     press_key              type_text             set_value
     scroll                 drag                  perform_secondary_action
-    get_clipboard          set_clipboard         get_permissions
+    paste                  wait_for_element      get_clipboard
+    set_clipboard          get_permissions
 
 Element-indexed actions dispatch through the accessibility tree.
 Pixel-coordinate actions route through a per-pid SkyLight event path
@@ -23,19 +24,32 @@ that remains trusted by Chromium/Electron renderer filters.
 - `ax` — AX tree only; no Screen Recording dependency.
 - `vision` — screenshot only; for vision-first VLMs.
 
+`paste` writes to NSPasteboard then fires `cmd+v` — faster than
+`type_text` for long or unicode-heavy content. Restores prior
+clipboard after 300 ms.
+
+`wait_for_element` polls the AX tree until a substring matches a
+rendered tree line (case-insensitive), returns the element index.
+Use between an action and its expected effect instead of sleeping.
+
 ## Quick start
 
     # Build
     swift build -c release
 
     # Or build + bundle as a .app with TCC-required entitlements
-    make app sign
+    make app sign && make install
+
+    # Launch — opens a floating "mac-cua" setup window with permission
+    # rows + Copy MCP config / Cursor demo / Quit buttons.
+    open /Applications/CuaMcp.app
 
     # Register with Claude Code (user scope)
-    claude mcp add --scope user mac-cua -- /absolute/path/to/.build/release/cua-mcp
+    claude mcp add --scope user mac-cua -- /Applications/CuaMcp.app/Contents/MacOS/cua-mcp
 
 Grant Accessibility + Screen Recording in System Settings → Privacy &
-Security on first use.
+Security on first use. Setup window picks up the grants live (1 s
+poll) — no relaunch needed.
 
 ## Background CU guarantees
 
