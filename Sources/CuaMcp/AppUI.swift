@@ -88,6 +88,57 @@ final class AppUI: NSObject, NSApplicationDelegate {
             self?.hostingView?.refresh()
         }
         refreshBadge()
+
+        // Visibility safety net: on machines with crowded menubars the
+        // status item gets clipped behind the notch and becomes
+        // unreachable. If we have no permissions yet (first launch),
+        // show a regular floating window with the same UI so the user
+        // can complete setup without hunting for the menubar item.
+        // Dismissed once both permissions are granted.
+        let axState = Permissions.axState()
+        let sr = Permissions.screenRecordingGranted()
+        if axState != .granted || !sr {
+            showSetupWindow()
+        }
+    }
+
+    private var setupWindow: NSWindow?
+
+    /// Floating setup window — fallback when the menubar status item is
+    /// hidden under the display notch / Bartender / overflow. Shows the
+    /// same `PermissionsView` contents. Auto-dismisses 2 s after the user
+    /// finishes granting both permissions. Center of main screen, always
+    /// on top, no Dock icon (we stay `.accessory`).
+    func showSetupWindow() {
+        if setupWindow != nil { return }
+        let view = PermissionsView(frame: NSRect(x: 0, y: 0, width: 380, height: 380))
+        let win = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 380, height: 400),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false)
+        win.title = "mac-cua setup"
+        win.isReleasedWhenClosed = false
+        win.level = .floating
+        win.center()
+        win.contentView = view
+        win.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        setupWindow = win
+        // Hand the timer a hook to refresh THIS window's view too, and
+        // dismiss it once both permissions land.
+        Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] t in
+            view.refresh()
+            let axState = Permissions.axState()
+            let sr = Permissions.screenRecordingGranted()
+            if axState == .granted && sr {
+                t.invalidate()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    self?.setupWindow?.close()
+                    self?.setupWindow = nil
+                }
+            }
+        }
     }
 
     @objc private func togglePopover(_ sender: Any?) {
