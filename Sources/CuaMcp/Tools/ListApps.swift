@@ -1,6 +1,18 @@
 import AppKit
+import ApplicationServices
 import CoreServices
 import Foundation
+
+/// True when `pid` exposes at least one AX window. Used to decide whether
+/// a non-`.regular` activation-policy process is worth surfacing in
+/// `list_apps` (file-picker XPC services, share sheets, etc.).
+private func hasAXWindow(pid: pid_t) -> Bool {
+    let axApp = AXUIElementCreateApplication(pid)
+    var value: CFTypeRef?
+    let err = AXUIElementCopyAttributeValue(axApp, "AXWindows" as CFString, &value)
+    guard err == .success, let arr = value as? [AXUIElement] else { return false }
+    return !arr.isEmpty
+}
 
 enum Tools {}
 
@@ -56,10 +68,22 @@ extension Tools {
     private static func collectEntries() -> [AppEntry] {
         var map: [String: AppEntry] = [:]
 
-        // Running apps (regular activation policy only).
-        for app in NSWorkspace.shared.runningApplications where app.activationPolicy == .regular {
+        // Running apps. Include `.regular` always; include `.accessory`
+        // and `.prohibited` only when they currently expose at least one
+        // AX window — picks up open/save panel XPC services, share
+        // sheets, system permission prompts, etc. that the user may need
+        // to drive but which don't have a Dock icon.
+        for app in NSWorkspace.shared.runningApplications {
             guard let bid = app.bundleIdentifier, let name = app.localizedName else { continue }
-            map[bid] = AppEntry(name: name, bundleId: bid, running: true, lastUsed: nil, uses: nil)
+            switch app.activationPolicy {
+            case .regular:
+                map[bid] = AppEntry(name: name, bundleId: bid, running: true, lastUsed: nil, uses: nil)
+            default:
+                if hasAXWindow(pid: app.processIdentifier) {
+                    map[bid] = AppEntry(
+                        name: name, bundleId: bid, running: true, lastUsed: nil, uses: nil)
+                }
+            }
         }
 
         // Also enumerate installed apps from /Applications + /System/Applications + ~/Applications,
