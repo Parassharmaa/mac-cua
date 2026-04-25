@@ -32,15 +32,15 @@ extension Tools {
         AXEnablement.shared.installIfNeeded(for: pid)
         hoverOverFocusedElement(pid: pid)
         pulseCursor()
-        // Arm background-focus suppression for the whole operation.
-        // AX writes can cause the target app to self-activate as it
-        // processes the change (e.g. TextEdit binds focus to the text
-        // area, Chromium notifies its renderer). The preventer catches
-        // any such activation and restores the user's frontmost app on
-        // the same runloop turn — no visible flicker.
         let guardRail = BackgroundFocus.activate(pid: pid)
         defer { guardRail.restore() }
-        if tryAXValueInsert(pid: pid, text: text) { return }
+        // Chromium-family targets need real CGEvent keystrokes so the
+        // renderer treats the text as user input. AX writes to
+        // AXSelectedText / AXValue land in the field but the field's
+        // input-event handlers don't fire — e.g. the omnibox accepts
+        // the value but won't parse it as a URL on subsequent Return.
+        // Native AppKit apps prefer the AX path (faster, unicode-safe).
+        if !isChromiumFamily(pid: pid), tryAXValueInsert(pid: pid, text: text) { return }
         for scalar in text.unicodeScalars {
             typeUnicode(String(scalar), modifiers: [], pid: pid)
         }
