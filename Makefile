@@ -81,8 +81,7 @@ dist: sign
 	rm -rf dist
 	mkdir -p dist/mac-cua-mcp-$(VERSION)/docs
 	cp -R $(APP_BUNDLE) dist/mac-cua-mcp-$(VERSION)/
-	cp README.md NOTES.md dist/mac-cua-mcp-$(VERSION)/
-	cp harness/HARNESS.md harness/REPORT.md dist/mac-cua-mcp-$(VERSION)/docs/ 2>/dev/null || true
+	cp README.md PLAN.md STATUS.md CLAUDE.md dist/mac-cua-mcp-$(VERSION)/ 2>/dev/null || true
 	printf '{\n  "mcpServers": {\n    "mac-cua": {\n      "command": "%s"\n    }\n  }\n}\n' "$$(pwd)/dist/mac-cua-mcp-$(VERSION)/$(APP_NAME).app/Contents/MacOS/cua-mcp" > dist/mac-cua-mcp-$(VERSION)/example.mcp.json
 	cd dist && zip -qr mac-cua-mcp-$(VERSION).zip mac-cua-mcp-$(VERSION)
 	@ls -lh dist/mac-cua-mcp-$(VERSION).zip
@@ -92,7 +91,7 @@ dist: sign
 	@echo "  dist/mac-cua-mcp-$(VERSION)/"
 	@echo "    $(APP_NAME).app     ad-hoc signed, ready to install"
 	@echo "    README.md           project overview"
-	@echo "    NOTES.md            Sky CUA reverse-engineering notes"
+	@echo "    PLAN.md             architecture + invariants"
+	@echo "    STATUS.md           latest eval results"
+	@echo "    CLAUDE.md           conventions for future edits"
 	@echo "    example.mcp.json    MCP client registration example"
-	@echo "    docs/HARNESS.md     comparator harness catalog"
-	@echo "    docs/REPORT.md      last run_all.py scoreboard"
