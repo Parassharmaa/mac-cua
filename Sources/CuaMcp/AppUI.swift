@@ -20,16 +20,25 @@ final class AppUI: NSObject, NSApplicationDelegate {
         return NSWorkspace.shared.frontmostApplication
     }()
 
+    /// Holds the delegate alive — `NSApplication.delegate` is a weak
+    /// reference, so the local in `run()` would deallocate the instant
+    /// the function frame goes out of scope. Without this, the status
+    /// item + timer never install because the delegate is gone before
+    /// AppKit fires `applicationDidFinishLaunching`.
+    private static var keepAlive: AppUI?
+
     static func run() {
         _ = previousFrontmost  // force eval while launch frontmost is still them
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
         let delegate = AppUI()
+        Self.keepAlive = delegate
         app.delegate = delegate
         app.run()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        FileHandle.standardError.write("[appui] didFinishLaunching\n".data(using: .utf8)!)
         // Restore focus to whoever was frontmost before we launched.
         // `open /Applications/CuaMcp.app` forces activation even on
         // `.accessory` apps; we undo it immediately so the user's flow
@@ -41,16 +50,26 @@ final class AppUI: NSObject, NSApplicationDelegate {
             prev.activate(options: [.activateIgnoringOtherApps])
         }
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        FileHandle.standardError.write(
+            "[appui] statusItem isVisible=\(statusItem.isVisible) length=\(statusItem.length)\n"
+                .data(using: .utf8)!)
         if let button = statusItem.button {
-            // SF Symbol — `cursorarrow.click.2` reads as an agent cursor,
-            // automatically respects menubar tint and dark/light mode. The
-            // per-permission status tints a small overlay circle when
-            // something is wrong.
-            button.image = NSImage(
+            // SF Symbol — `cursorarrow.click.2` reads as an agent cursor.
+            // Falls back to a glyph string if the symbol isn't available
+            // (e.g. very old macOS) so the menubar item is always visible.
+            if let img = NSImage(
                 systemSymbolName: "cursorarrow.click.2", accessibilityDescription: "cua-mcp")
+            {
+                button.image = img
+            } else {
+                button.title = "◉"
+            }
             button.toolTip = "mac-cua MCP server"
             button.action = #selector(togglePopover(_:))
             button.target = self
+        } else {
+            FileHandle.standardError.write(
+                "[appui] WARN: statusItem.button is nil\n".data(using: .utf8)!)
         }
         hostingView = PermissionsView(frame: NSRect(x: 0, y: 0, width: 380, height: 380))
         popover = NSPopover()
@@ -58,8 +77,15 @@ final class AppUI: NSObject, NSApplicationDelegate {
         popover.behavior = .transient
         popover.contentViewController = NSViewController()
         popover.contentViewController?.view = hostingView
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
+        // Refresh both the menubar badge tint AND the popover view contents
+        // every 1.5s. Without the popover refresh, opening the popover before
+        // granting permissions left it stuck on the "Grant" prompts even
+        // after the user finished the System Settings flow — the row state
+        // only updated on next open.
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) {
+            [weak self] _ in
             self?.refreshBadge()
+            self?.hostingView?.refresh()
         }
         refreshBadge()
     }
